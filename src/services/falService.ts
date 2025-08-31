@@ -1,44 +1,68 @@
-import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { v4 as uuidv4 } from 'uuid';
+import { fal } from '@fal-ai/client';
 
-dotenv.config();
+dotenv.config()
 
-const FAL_API_URL = 'https://api.fal.ai/v1/queues';
-const FAL_API_KEY = process.env.FAL_API;
+fal.config({
+    credentials: process.env.FAL_API
+});
 
-const httpAgent = new http.Agent({ keepAlive: true });
-
-export const submitFalRequest = async (modelId: string, input: any) => {
-    const url = `${FAL_API_URL}/${modelId.replace('/', '-')}/requests`;
+/**
+ * @description Processes an image using the @fal-ai/client library.
+ * This function handles the subscription and waits for the final result.
+ * @param modelId The ID of the Fal AI model to use.
+ * @param input The input payload for the model.
+ * @returns The result from the Fal AI model.
+ */
+export const processWithFalClient = async (modelId: string, input: any) => {
     try {
-        const response = await axios.post(url, input, {
-            headers: {
-                'Authorization': `Key ${FAL_API_KEY}`,
-                'Content-Type': 'application/json',
+        console.log(`Submitting job to Fal AI model: ${modelId}`);
+        const result: any = await fal.subscribe(modelId, {
+            input: input,
+            logs: true, // Enable server-side logging for debugging
+            onQueueUpdate: (update) => {
+                if (update.status === "IN_PROGRESS") {
+                    update.logs.map((log) => console.log(`[Fal AI Log]: ${log.message}`));
+                }
             },
-            httpAgent,
         });
-        return response.data;
+        console.log('Fal AI job completed successfully.');
+        return result;
     } catch (error) {
-        console.error('Error submitting Fal AI request:', error.response?.data || error.message);
-        throw new Error('Failed to submit request to Fal AI.');
+        console.error('Error during Fal AI client subscription:', error);
+        throw new Error('Failed to process request with Fal AI client.');
     }
 };
 
-export const getFalResult = async (modelId: string, requestId: string) => {
-    const url = `${FAL_API_URL}/${modelId.replace('/', '-')}/requests/${requestId}`;
+
+export const downloadFalImage = async (imageUrl: string): Promise<string> => {
+    const imageDir = path.join(__dirname, `../../public/images/fal`);
+    if (!fs.existsSync(imageDir)) {
+        fs.mkdirSync(imageDir, { recursive: true });
+    }
+    const filename = `${uuidv4()}.png`;
+    const outputPath = path.join(imageDir, filename);
+
     try {
-        const response = await axios.get(url, {
-            headers: {
-                'Authorization': `Key ${FAL_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            httpAgent,
+        const response = await axios({
+            method: 'GET',
+            url: imageUrl,
+            responseType: 'stream',
         });
-        return response.data;
+
+        const writer = fs.createWriteStream(outputPath);
+        response.data.pipe(writer);
+
+        return new Promise((resolve, reject) => {
+            writer.on('finish', () => resolve(`/images/fal/${filename}`));
+            writer.on('error', reject);
+        });
     } catch (error) {
-        console.error(`Error getting Fal AI result for request ${requestId}:`, error.message);
-        throw new Error('Failed to get result from Fal AI.');
+        console.error(`Error downloading image to fal:`, error);
+        throw new Error('Failed to download generated image.');
     }
 };

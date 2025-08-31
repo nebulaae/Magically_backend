@@ -16,10 +16,11 @@ export interface PublicationAttributes {
     userId: string;
     content: string;
     imageUrl?: string;
-    videoUrl?: string; // [NEW] For video content
+    videoUrl?: string;
     category?: string;
     likeCount: number;
     commentCount: number;
+    isPhotoOfTheDay: boolean;
     createdAt?: Date;
     updatedAt?: Date;
 }
@@ -34,6 +35,8 @@ export class Publication extends Model<PublicationAttributes> implements Publica
     public category?: string;
     public likeCount!: number;
     public commentCount!: number;
+    public isPhotoOfTheDay!: boolean;
+
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
 
@@ -85,7 +88,12 @@ Publication.init(
             type: DataTypes.INTEGER,
             allowNull: false,
             defaultValue: 0
-        }
+        },
+        isPhotoOfTheDay: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            allowNull: false,
+        },
     },
     {
         sequelize: db,

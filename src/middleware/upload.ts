@@ -4,21 +4,20 @@ import multer from 'multer';
 import { Request } from 'express';
 
 // Define the destinations for directories
-const falDir = path.join(__dirname, '../../public/ai/falAi');
+const falDir = path.join(__dirname, '../../public/ai/fal');
 const klingDir = path.join(__dirname, '../../public/ai/kling');
 const avatarDir = path.join(__dirname, '../../public/users/avatars');
 const privateDir = path.join(__dirname, '../../private/user_uploads');
 const higgsfieldDir = path.join(__dirname, '../../public/ai/higgsfield');
 const publicationDir = path.join(__dirname, '../../public/publications');
-
+const replicateDir = path.join(__dirname, '../../public/ai/replicate'); // [NEW]
 
 // Ensure directories exist
-[falDir, klingDir, avatarDir, privateDir, higgsfieldDir, publicationDir].forEach(dir => {
+[falDir, klingDir, avatarDir, privateDir, higgsfieldDir, publicationDir, replicateDir].forEach(dir => { // [NEW]
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
 });
-
 // File filter to only accept image files
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     const allowedTypes = /jpeg|jpg|png|gif/;
@@ -133,3 +132,20 @@ export const uploadHiggsfieldImage = multer({
     limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
     fileFilter: fileFilter
 }).array('higgsfieldImage', 10);
+
+// [NEW] Storage for Replicate training images
+export const uploadReplicateImages = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+            cb(null, replicateDir);
+        },
+        filename: (req, file, cb) => {
+            const userId = req.user.id;
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            const extension = path.extname(file.originalname);
+            cb(null, `replicate-${userId}-${uniqueSuffix}${extension}`);
+        }
+    }),
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB total might be needed
+    fileFilter: fileFilter
+}).array('replicateImages', 15);

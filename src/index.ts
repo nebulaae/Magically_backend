@@ -8,7 +8,7 @@ import cookieParser from 'cookie-parser';
 
 import { initializeSocketIO } from './socketManager';
 import { Server as SocketIOServer } from 'socket.io';
-import { startVideoPoller } from './workers/videoPoller';
+import { startJobPoller } from './workers/jobPoller';
 import { setupAssociations } from './models/associations';
 
 // Import routes
@@ -16,9 +16,11 @@ import falRoutes from './routes/fal';
 import gptRoutes from './routes/gpt';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/user';
+import adminRoutes from './routes/admin';
 import klingRoutes from './routes/kling';
 import galleryRoutes from './routes/gallery';
 import commentRoutes from './routes/comment';
+import replicateRoutes from './routes/replicate';
 import higgsfieldRoutes from './routes/higgsfield';
 import publicationRoutes from './routes/publication';
 
@@ -56,9 +58,11 @@ app.use('/api/fal', falRoutes);
 app.use('/api/gpt', gptRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/kling', klingRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/comments', commentRoutes);
+app.use('/api/replicate', replicateRoutes);
 app.use('/api/higgsfield', higgsfieldRoutes);
 app.use('/api/publications', publicationRoutes);
 
@@ -77,7 +81,7 @@ const startServer = async () => {
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       // Start the background worker AFTER the server is running
-      startVideoPoller(io);
+      startJobPoller(io);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

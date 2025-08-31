@@ -1,7 +1,9 @@
 import fs from 'fs';
+import db from '../config/database';
 import { Request, Response } from 'express';
 import { Gallery } from '../models/Gallery';
 import { Publication } from '../models/Publication';
+import { deductTokensForGeneration } from '../lib/utils';
 import {
     generateVideo,
     getVideo,
@@ -23,12 +25,16 @@ export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
     } = req.body;
 
     const files = req.files as Express.Multer.File[];
+    const userId = req.user.id;
 
     if (!files || files.length === 0) {
         return res.status(400).json({ message: 'At least one image is required.' });
     }
 
+    const t = await db.transaction();
     try {
+        await deductTokensForGeneration(userId, 'video', t);
+
         const imageUrls = files.map(file => {
             const filePath = `/ai/higgsfield/${file.filename}`;
             return `${process.env.BACKEND_URL}${filePath}`;
@@ -45,13 +51,10 @@ export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
         };
 
         const generationResponse = await generateVideo(apiPayload, imageUrls);
-
-        // DO NOT DELETE THE FILES HERE.
-
         const taskId = generationResponse.id;
 
         if (!taskId) {
-            return res.status(500).json({ message: 'Failed to get a task ID from Higgsfield.' });
+            throw new Error('Failed to get a task ID from Higgsfield.');
         }
 
         let videoResultUrl;
@@ -62,14 +65,13 @@ export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
             await sleep(5000);
             try {
                 const statusResponse = await getVideo(taskId);
-
                 if (statusResponse.jobs && statusResponse.jobs[0]) {
                     const job = statusResponse.jobs[0];
                     if (job.status === 'completed') {
                         videoResultUrl = job.result.url;
                         break;
                     } else if (job.status === 'failed') {
-                        return res.status(500).json({ message: 'Video generation failed.' });
+                        throw new Error('Video generation failed at Higgsfield.');
                     }
                 }
             } catch (pollError) {
@@ -79,9 +81,10 @@ export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
         }
 
         if (!videoResultUrl) {
-            return res.status(500).json({ message: 'Video generation timed out.' });
+            throw new Error('Video generation timed out.');
         }
 
+        await t.commit();
         res.status(200).json({
             message: 'Video generated successfully. Please confirm your action.',
             videoUrl: videoResultUrl,
@@ -89,10 +92,10 @@ export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
         });
 
     } catch (error) {
+        await t.rollback();
         console.error('Higgsfield video generation process error:', error);
-        res.status(500).json({ message: 'An error occurred during the video generation process.' });
+        res.status(500).json({ message: error.message || 'An error occurred during the video generation process.' });
     } finally {
-        // This is the correct place to clean up the uploaded files.
         if (files && files.length > 0) {
             files.forEach(file => {
                 if (fs.existsSync(file.path)) {
@@ -102,6 +105,7 @@ export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
         }
     }
 };
+
 // Process the video (publish or save) after user confirmation from the frontend.
 export const processHiggsfieldVideo = async (req: Request, res: Response) => {
     const { publish, videoUrl, prompt } = req.body;
@@ -126,7 +130,7 @@ export const processHiggsfieldVideo = async (req: Request, res: Response) => {
             const galleryItem = await Gallery.create({
                 userId,
                 prompt: prompt || 'Generated Video',
-                imageUrl: downloadedVideoPath,
+                imageUrl: downloadedVideoPath, // Note: using imageUrl field for video path in gallery
                 generationType: 'video-higgsfield',
             });
             res.status(201).json({ message: 'Video saved to your private gallery.', galleryItem });

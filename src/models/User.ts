@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import db from '../config/database';
 import type { Comment } from './Comment';
+import { ReplicateStatus } from '../lib/utils';
 import type { Publication } from './Publication';
 import {
     Model,
@@ -26,11 +27,19 @@ export interface UserAttributes {
         count: number;
         lastReset: Date;
     };
+    role: 'user' | 'admin';
+    isBlocked: boolean;
     verified: boolean;
     otp?: string;
     otpExpires?: Date;
     passwordResetToken?: string;
     passwordResetTokenExpires?: Date;
+    replicateModels?: {
+        id: string;
+        version: string;
+        name: string;
+        status: ReplicateStatus; // Using the corrected type here
+    }[];
     createdAt?: Date;
     updatedAt?: Date;
 }
@@ -50,16 +59,22 @@ export class User extends Model<UserAttributes> implements UserAttributes {
         count: number;
         lastReset: Date;
     };
+    public role!: 'user' | 'admin';
+    public isBlocked!: boolean;
     public verified!: boolean;
     public otp?: string;
     public otpExpires?: Date;
     public passwordResetToken?: string;
     public passwordResetTokenExpires?: Date;
-
+    public replicateModels?: {
+        id: string;
+        version: string;
+        name: string;
+        status: ReplicateStatus; // Using the corrected type here
+    }[];
     // Timestamps
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
-
     public async comparePassword(candidatePassword: string): Promise<boolean> {
         if (!this.password) return false;
         return bcrypt.compare(candidatePassword, this.password);
@@ -67,18 +82,15 @@ export class User extends Model<UserAttributes> implements UserAttributes {
 
     // --- Sequelize Mixins for Associations ---
     public getPublications!: HasManyGetAssociationsMixin<Publication>;
-
     // Following/Followers
     public getFollowing!: BelongsToManyGetAssociationsMixin<User>;
     public addFollowing!: BelongsToManyAddAssociationMixin<User, string>;
     public removeFollowing!: BelongsToManyRemoveAssociationMixin<User, string>;
     public getFollowers!: BelongsToManyGetAssociationsMixin<User>;
-
     // Liked Publications
     public getLikedPublications!: BelongsToManyGetAssociationsMixin<Publication>;
     public addLikedPublication!: BelongsToManyAddAssociationMixin<Publication, string>;
     public removeLikedPublication!: BelongsToManyRemoveAssociationMixin<Publication, string>;
-
     // Liked Comments
     public getLikedComments!: BelongsToManyGetAssociationsMixin<Comment>;
     public addLikedComment!: BelongsToManyAddAssociationMixin<Comment, string>;
@@ -95,7 +107,8 @@ User.init(
         },
         fullname: {
             type: DataTypes.STRING(32),
-            allowNull: true,
+            allowNull:
+                true,
         },
         username: {
             type: DataTypes.STRING(16),
@@ -105,6 +118,7 @@ User.init(
         email: {
             type: DataTypes.STRING(50),
             allowNull: false,
+
             unique: true,
             validate: { isEmail: true },
         },
@@ -113,6 +127,7 @@ User.init(
             allowNull: true,
         },
         password: {
+
             type: DataTypes.STRING(60),
             allowNull: true,
         },
@@ -122,7 +137,8 @@ User.init(
         },
         interests: {
             type: DataTypes.ARRAY(DataTypes.STRING),
-            allowNull: true,
+            allowNull:
+                true,
             defaultValue: [],
         },
         tokens: {
@@ -132,14 +148,26 @@ User.init(
         },
         dailyActions: {
             type: DataTypes.JSONB,
+
             allowNull: false,
             defaultValue: { count: 0, lastReset: new Date() },
+        },
+        role: {
+            type: DataTypes.ENUM('user', 'admin'),
+            defaultValue: 'user',
+            allowNull: false
+        },
+        isBlocked: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            allowNull: false
         },
         verified: {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
             allowNull: false,
         },
+
         otp: {
             type: DataTypes.STRING,
             allowNull: true,
@@ -149,17 +177,24 @@ User.init(
             allowNull: true,
         },
         passwordResetToken: {
+
             type: DataTypes.STRING,
             allowNull: true,
         },
         passwordResetTokenExpires: {
             type: DataTypes.DATE,
             allowNull: true,
+        },
+        replicateModels: {
+            type: DataTypes.JSONB,
+            allowNull: true,
+            defaultValue: [],
         }
     },
     {
         sequelize: db,
         modelName: 'User',
+
         tableName: 'users',
         hooks: {
             beforeCreate: async (user: User) => {

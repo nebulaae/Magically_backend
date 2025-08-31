@@ -13,6 +13,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@fal-ai/client": "^1.6.2",
+    "archiver": "^7.0.1",
     "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -24,6 +25,7 @@
     "nodemailer": "^7.0.5",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
+    "replicate": "^1.1.0",
     "sequelize": "^6.37.7",
     "socket.io": "^4.8.1",
     "uuid": "^11.1.0"

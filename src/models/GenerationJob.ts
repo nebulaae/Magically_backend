@@ -1,29 +1,29 @@
 import db from '../config/database';
 import { Model, DataTypes } from 'sequelize';
 
-export interface VideoJobAttributes {
+export interface GenerationJobAttributes {
     id: string;
     userId: string;
-    service: 'kling' | 'higgsfield';
+    service: 'kling' | 'higgsfield' | 'gpt' | 'fal' | 'replicate';
     serviceTaskId: string;
     status: 'pending' | 'completed' | 'failed';
-    videoUrl?: string;
+    resultUrl?: string;
     prompt?: string;
     errorMessage?: string;
 }
 
-export class VideoJob extends Model<VideoJobAttributes> implements VideoJobAttributes {
+export class GenerationJob extends Model<GenerationJobAttributes> implements GenerationJobAttributes {
     public id!: string;
     public userId!: string;
-    public service!: 'kling' | 'higgsfield';
+    public service!: 'kling' | 'higgsfield' | 'gpt' | 'fal' | 'replicate';
     public serviceTaskId!: string;
     public status!: 'pending' | 'completed' | 'failed';
-    public videoUrl?: string;
+    public resultUrl?: string;
     public prompt?: string;
     public errorMessage?: string;
 }
 
-VideoJob.init(
+GenerationJob.init(
     {
         id: {
             type: DataTypes.UUID,
@@ -39,7 +39,7 @@ VideoJob.init(
             },
         },
         service: {
-            type: DataTypes.ENUM('kling', 'higgsfield'),
+            type: DataTypes.ENUM('kling', 'higgsfield', 'gpt', 'fal', 'replicate'),
             allowNull: false,
         },
         serviceTaskId: {
@@ -52,7 +52,7 @@ VideoJob.init(
             allowNull: false,
             defaultValue: 'pending',
         },
-        videoUrl: {
+        resultUrl: {
             type: DataTypes.STRING,
             allowNull: true,
         },
@@ -67,7 +67,7 @@ VideoJob.init(
     },
     {
         sequelize: db,
-        modelName: 'VideoJob',
-        tableName: 'video_jobs',
+        modelName: 'GenerationJob',
+        tableName: 'generation_jobs',
     }
 );

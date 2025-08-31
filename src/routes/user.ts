@@ -40,4 +40,7 @@ router.post('/:userId/subscribe', auth, asyncHandler(userController.subscribe));
 // Unsubscribe from (unfollow) a user by their ID
 router.delete('/:userId/unsubscribe', auth, asyncHandler(userController.unsubscribe));
 
+// Change role to an admin
+router.put('/me/admin', auth, asyncHandler(userController.changeRole))
+
 export default router;

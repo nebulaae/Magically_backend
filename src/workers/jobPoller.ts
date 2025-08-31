@@ -1,18 +1,20 @@
-import { VideoJob } from '../models/VideoJob';
 import { getUserSocketId } from '../socketManager';
 import { Server as SocketIOServer } from 'socket.io';
+import { GenerationJob } from '../models/GenerationJob';
 import { getKlingVideoStatus } from '../services/klingService';
 import { getVideo as getHiggsfieldStatus } from '../services/higgsfieldService';
+// NOTE: Add polling functions for GPT and Fal if they become async in the future.
+// For now, this worker is primarily for long-running video tasks.
 
 const POLLING_INTERVAL = 15000; // Poll every 15 seconds
 
-export const startVideoPoller = (io: SocketIOServer) => {
-    console.log('Video poller worker started.');
+export const startJobPoller = (io: SocketIOServer) => {
+    console.log('Generation job poller worker started.');
     setInterval(() => pollPendingJobs(io), POLLING_INTERVAL);
 };
 
 const pollPendingJobs = async (io: SocketIOServer) => {
-    const pendingJobs = await VideoJob.findAll({ where: { status: 'pending' } });
+    const pendingJobs = await GenerationJob.findAll({ where: { status: 'pending' } });
 
     if (pendingJobs.length === 0) {
         return; // No jobs to process
@@ -24,14 +26,14 @@ const pollPendingJobs = async (io: SocketIOServer) => {
         try {
             let isComplete = false;
             let isFailed = false;
-            let videoUrl: string | undefined;
+            let resultUrl: string | undefined;
             let errorMessage: string | undefined;
 
             if (job.service === 'kling') {
                 const status = await getKlingVideoStatus(job.serviceTaskId);
                 if (status.success && status.data.status === 'completed') {
                     isComplete = true;
-                    videoUrl = status.data.video_url;
+                    resultUrl = status.data.video_url;
                 } else if (!status.success || status.data.status === 'failed') {
                     isFailed = true;
                     errorMessage = status.message || 'Kling generation failed.';
@@ -42,26 +44,27 @@ const pollPendingJobs = async (io: SocketIOServer) => {
                     const higgsJob = status.jobs[0];
                     if (higgsJob.status === 'completed') {
                         isComplete = true;
-                        videoUrl = higgsJob.result.url;
+                        resultUrl = higgsJob.result.url;
                     } else if (higgsJob.status === 'failed') {
                         isFailed = true;
                         errorMessage = 'Higgsfield generation failed.';
                     }
                 }
             }
+            // Add logic for other async services (GPT, Fal) here if needed.
 
             const userSocketId = getUserSocketId(job.userId);
 
-            if (isComplete && videoUrl) {
+            if (isComplete && resultUrl) {
                 console.log(`Job ${job.id} completed for user ${job.userId}.`);
                 job.status = 'completed';
-                job.videoUrl = videoUrl;
+                job.resultUrl = resultUrl;
                 await job.save();
 
                 if (userSocketId) {
                     io.to(userSocketId).emit('jobCompleted', {
                         jobId: job.id,
-                        videoUrl: job.videoUrl,
+                        resultUrl: job.resultUrl,
                         prompt: job.prompt,
                         service: job.service
                     });

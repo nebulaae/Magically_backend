@@ -7,15 +7,15 @@ import { uploadFalImage } from '../middleware/upload';
 
 const router = express.Router();
 
-// Generate the image
+// Post-process an existing image. This now handles the file upload.
 router.post(
-    '/generate',
+    '/post-process',
     auth,
-    uploadFalImage,
-    asyncHandler(falController.generateFalImage)
+    uploadFalImage, // Middleware to handle the form-data image upload
+    asyncHandler(falController.postProcessFalImage)
 );
 
-// Process the generated image
+// Process the generated/processed image (publish or save)
 router.post(
     '/process-image',
     auth,

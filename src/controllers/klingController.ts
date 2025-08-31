@@ -1,7 +1,9 @@
 import fs from 'fs';
+import db from '../config/database';
 import { Request, Response } from 'express';
 import { Gallery } from '../models/Gallery';
 import { Publication } from '../models/Publication';
+import { deductTokensForGeneration } from '../lib/utils';
 import {
     generateKlingVideo,
     getKlingVideoStatus,
@@ -22,13 +24,16 @@ export const generateAndPollKlingVideo = async (req: Request, res: Response) => 
     } = req.body;
 
     const file = req.file;
+    const userId = req.user.id;
 
     if (!file) {
         return res.status(400).json({ message: 'An image is required for Kling generation.' });
     }
 
+    const t = await db.transaction();
     try {
-        // NOTE: The path for the public URL must match how you serve static files in index.ts
+        await deductTokensForGeneration(userId, 'video', t);
+
         const imageUrl = `${process.env.BACKEND_URL}/ai/kling/${file.filename}`;
 
         const payload = {
@@ -43,10 +48,8 @@ export const generateAndPollKlingVideo = async (req: Request, res: Response) => 
 
         const generationResponse = await generateKlingVideo(payload);
 
-        // DO NOT DELETE THE FILE HERE. The AI service needs to download it.
-
         if (!generationResponse.success || !generationResponse.data.id) {
-            return res.status(500).json({ message: 'Failed to get a task ID from Kling.', details: generationResponse });
+            throw new Error('Failed to get a task ID from Kling.');
         }
 
         const taskId = generationResponse.data.id;
@@ -63,7 +66,7 @@ export const generateAndPollKlingVideo = async (req: Request, res: Response) => 
                     videoUrl = statusResponse.data.video_url;
                     break;
                 } else if (!statusResponse.success || statusResponse.data.status === 'failed') {
-                    return res.status(500).json({ message: 'Kling video generation failed.', details: statusResponse });
+                    throw new Error('Kling video generation failed.');
                 }
             } catch (pollError) {
                 console.warn(`Polling attempt ${attempts + 1} for Kling task ${taskId} failed:`, pollError.message);
@@ -72,9 +75,10 @@ export const generateAndPollKlingVideo = async (req: Request, res: Response) => 
         }
 
         if (!videoUrl) {
-            return res.status(500).json({ message: 'Kling video generation timed out.' });
+            throw new Error('Kling video generation timed out.');
         }
 
+        await t.commit();
         res.status(200).json({
             message: 'Video generated successfully. Please confirm your action.',
             videoUrl: videoUrl,
@@ -82,11 +86,10 @@ export const generateAndPollKlingVideo = async (req: Request, res: Response) => 
         });
 
     } catch (error) {
+        await t.rollback();
         console.error('Kling video generation process error:', error);
-        res.status(500).json({ message: 'An error occurred during the Kling video generation process.' });
+        res.status(500).json({ message: error.message || 'An error occurred during the Kling video generation process.' });
     } finally {
-        // This block will run after the try/catch is complete.
-        // This is the correct place to clean up the uploaded file.
         if (req.file && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
         }
@@ -117,7 +120,7 @@ export const processKlingVideo = async (req: Request, res: Response) => {
             const galleryItem = await Gallery.create({
                 userId,
                 prompt: prompt || 'Generated Video',
-                imageUrl: downloadedVideoPath,
+                imageUrl: downloadedVideoPath, // Note: using imageUrl field for video path
                 generationType: 'video-kling',
             });
             res.status(201).json({ message: 'Video saved to your private gallery.', galleryItem });

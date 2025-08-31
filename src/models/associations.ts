@@ -1,10 +1,10 @@
 import { User } from './User';
 import { Comment } from './Comment';
 import { Gallery } from './Gallery';
-import { VideoJob } from './VideoJob';
 import { Publication } from './Publication';
 import { Subscription } from './Subscription';
 import { LikedComment } from './LikedComment';
+import { GenerationJob } from './GenerationJob';
 import { LikedPublication } from './LikedPublication';
 
 export const setupAssociations = () => {
@@ -106,12 +106,12 @@ export const setupAssociations = () => {
     });
 
     // User -> VideoJob (One-to-Many)
-    User.hasMany(VideoJob, {
+    User.hasMany(GenerationJob, {
         foreignKey: 'userId',
         as: 'videoJobs',
         onDelete: 'CASCADE'
     });
-    VideoJob.belongsTo(User, {
+    GenerationJob.belongsTo(User, {
         foreignKey: 'userId',
         as: 'user',
     });

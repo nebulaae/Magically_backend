@@ -25,12 +25,17 @@ export const generateGptImage = async (prompt: string) => {
                 'Content-Type': 'application/json',
             },
             httpAgent,
+            // ADDED: Timeout to prevent long waits on unresponsive API
+            timeout: 1200000 //1200 seconds
         });
-        // NOTE: The exact path to the image URL in the response is an assumption.
-        // You may need to adjust `response.data.choices[0].message.content` based on the actual API response structure.
         return response.data;
     } catch (error) {
-        console.error('Error generating GPT image:', error.response?.data || error.message);
+        // Log the actual error response if available
+        if (axios.isAxiosError(error) && error.response) {
+            console.error('Error generating GPT image:', error.response.data);
+        } else {
+            console.error('Error generating GPT image:', error.message);
+        }
         throw new Error('Failed to generate image with GPT-4o.');
     }
 };
@@ -40,7 +45,7 @@ export const downloadImage = async (imageUrl: string, destinationDir: 'gpt' | 'f
     if (!fs.existsSync(imageDir)) {
         fs.mkdirSync(imageDir, { recursive: true });
     }
-    const filename = `${uuidv4()}.png`; // Assuming PNG format
+    const filename = `${uuidv4()}.png`;
     const outputPath = path.join(imageDir, filename);
 
     try {
@@ -54,7 +59,7 @@ export const downloadImage = async (imageUrl: string, destinationDir: 'gpt' | 'f
         response.data.pipe(writer);
 
         return new Promise((resolve, reject) => {
-            writer.on('finish', () => resolve(`/ai/${destinationDir}/${filename}`));
+            writer.on('finish', () => resolve(`/images/${destinationDir}/${filename}`));
             writer.on('error', reject);
         });
     } catch (error) {
@@ -63,3 +68,14 @@ export const downloadImage = async (imageUrl: string, destinationDir: 'gpt' | 'f
     }
 };
 
+/**
+ * Extracts the first full HTTPS URL from a string, which might contain markdown.
+ * @param text The text content from the API response.
+ * @returns The extracted URL or null if not found.
+ */
+export const extractImageUrl = (text: string): string | null => {
+    if (!text) return null;
+    const regex = /https:\/\/[^\s)]+/;
+    const match = text.match(regex);
+    return match ? match[0] : null;
+};
