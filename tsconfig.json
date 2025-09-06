@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "types": ["node", "express", "multer"],
     "target": "es2017",
     "module": "commonjs",
     "sourceMap": true,

@@ -18,6 +18,7 @@ const replicateDir = path.join(__dirname, '../../public/ai/replicate'); // [NEW]
         fs.mkdirSync(dir, { recursive: true });
     }
 });
+
 // File filter to only accept image files
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     const allowedTypes = /jpeg|jpg|png|gif/;
@@ -133,7 +134,7 @@ export const uploadHiggsfieldImage = multer({
     fileFilter: fileFilter
 }).array('higgsfieldImage', 10);
 
-// [NEW] Storage for Replicate training images
+// Storage for Replicate training images
 export const uploadReplicateImages = multer({
     storage: multer.diskStorage({
         destination: (req, file, cb) => {

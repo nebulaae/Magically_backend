@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import axios from 'axios';
+import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 
 const HIGGSFIELD_API_URL = 'https://api.unifically.com/higgsfield';
