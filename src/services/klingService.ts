@@ -73,7 +73,7 @@ export const downloadKlingVideo = async (videoUrl: string): Promise<string> => {
         response.data.pipe(writer);
 
         return new Promise((resolve, reject) => {
-            writer.on('finish', () => resolve(`/videos/${filename}`));
+            writer.on('finish', () => resolve(`/videos/kling/${filename}`));
             writer.on('error', reject);
         });
     } catch (error) {

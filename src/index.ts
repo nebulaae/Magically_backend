@@ -2,6 +2,7 @@ import cors from 'cors';
 import path from 'path';
 import http from 'http';
 import dotenv from 'dotenv';
+import mime from "mime-types";
 import express from 'express';
 import db from './config/database';
 import cookieParser from 'cookie-parser';
@@ -49,6 +50,17 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// For correct types
+app.use((req, res, next) => {
+  if (req.path.endsWith(".mp4")) {
+    res.type("video/mp4"); // force correct type
+  } else {
+    const type = mime.lookup(req.path);
+    if (type) res.type(type);
+  }
+  next();
+});
 
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, '../public')));

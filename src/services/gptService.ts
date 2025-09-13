@@ -26,7 +26,7 @@ export const generateGptImage = async (prompt: string) => {
             },
             httpAgent,
             // ADDED: Timeout to prevent long waits on unresponsive API
-            timeout: 1200000 //1200 seconds
+            timeout: 1200000 // 1200 seconds
         });
         return response.data;
     } catch (error) {
