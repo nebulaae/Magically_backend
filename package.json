@@ -44,6 +44,7 @@
     "@types/node": "^24.3.0",
     "@types/nodemailer": "^7.0.0",
     "@types/uuid": "^10.0.0",
+    "babel-register": "^6.26.0",
     "nodemon": "^3.1.10",
     "typescript": "^5.9.2"
   }

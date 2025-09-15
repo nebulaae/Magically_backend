@@ -22,6 +22,9 @@ router.get('/:publicationId', auth, asyncHandler(publicationController.getPublic
 // Update a publication
 router.put('/:publicationId', auth, asyncHandler(publicationController.updatePublication));
 
+// DELETE a publication
+router.delete('/:publicationId', auth, asyncHandler(publicationController.deletePublication));
+
 // Like a publication
 router.post('/:publicationId/like', auth, asyncHandler(publicationController.likePublication));
 

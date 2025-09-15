@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import db from '../config/database';
 
-import { Op } from 'sequelize';
 import { User } from '../models/User';
+import { col, fn, Op } from 'sequelize';
 import { Request, Response } from 'express';
 import { handleUserAction } from '../lib/utils';
 import { Publication } from '../models/Publication';
@@ -54,6 +54,37 @@ const addIsFollowingInfoToUsers = async (users: User[], currentUserId: string) =
             isFollowing: followingIds.has(user.id)
         };
     });
+};
+
+// GET /api/users/top - Get Top Users
+export const getTopUsers = async (req: Request, res: Response) => {
+    try {
+        const currentUserId = req.user.id;
+        const topUsers = await User.findAll({
+            attributes: {
+                include: [[fn('COUNT', col('Followers.followerId')), 'followersCount']]
+            },
+            include: [{
+                model: User,
+                as: 'Followers',
+                attributes: [],
+                duplicating: false,
+            }],
+            group: ['User.id'],
+            order: [[fn('COUNT', col('Followers.followerId')), 'DESC']],
+            limit: 5,
+            subQuery: false,
+            where: {
+                id: { [Op.ne]: currentUserId }
+            }
+        });
+
+        const usersWithInfo = await addIsFollowingInfoToUsers(topUsers, currentUserId);
+        res.json(usersWithInfo);
+    } catch (error) {
+        console.error('Get top users error:', error);
+        res.status(500).json({ message: 'Server error while fetching top users.' });
+    }
 };
 
 // --- Get User Profile ---

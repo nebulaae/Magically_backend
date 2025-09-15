@@ -1,3 +1,4 @@
+import path from 'path';
 import dotenv from 'dotenv';
 
 import { Sequelize } from 'sequelize';
@@ -19,5 +20,10 @@ try {
 } catch (error) {
   console.error('Unable to connect to the database:', error);
 }
+
+// Resolve path for config
+export const config = {
+  config: path.resolve('config', 'config.js'),
+};
 
 export default db;

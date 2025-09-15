@@ -29,27 +29,24 @@ export const getPublicationById = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Publication not found' });
         }
 
-        // Fetch comments separately with full hierarchy
         const topLevelComments = await Comment.findAll({
             where: { publicationId: publication.id, parentId: null },
             include: [{ model: User, as: 'author', attributes: ['id', 'username', 'fullname', 'avatar'] }],
             order: [['createdAt', 'ASC']],
         });
-
         for (const comment of topLevelComments) {
             (comment as any).dataValues.replies = await fetchReplies(comment);
         }
 
         const publicationJson = publication.toJSON();
-
-        // Add isLiked and isFollowing info
         const isFollowing = await Subscription.findOne({ where: { followerId: userId, followingId: publication.userId } });
         const isLiked = await LikedPublication.findOne({ where: { userId, publicationId: publication.id } });
 
         const publicationWithExtras = {
             ...publicationJson,
             isFollowing: !!isFollowing,
-            isLiked: !!isLiked
+            isLiked: !!isLiked,
+            comments: topLevelComments // Include comments directly
         };
 
         res.json(publicationWithExtras);
@@ -116,32 +113,44 @@ export const createPublication = async (req: Request, res: Response) => {
     }
 };
 
+// GET /api/publications - Get All Publications with Pagination and Filtering
 export const getAllPublications = async (req: Request, res: Response) => {
     try {
         const userId = req.user.id;
-        const { sortBy, category } = req.query;
+        const { page = '1', limit = '10', sortBy, hashtag } = req.query;
+
+        const pageNumber = parseInt(page as string, 10);
+        const limitNumber = parseInt(limit as string, 10);
+        const offset = (pageNumber - 1) * limitNumber;
 
         let order: any = [['createdAt', 'DESC']];
-        if (sortBy === 'mostLiked') {
+        if (sortBy === 'popular') {
             order = [['likeCount', 'DESC']];
-        } else if (sortBy === 'mostCommented') {
-            order = [['commentCount', 'DESC']];
+        } else if (sortBy === 'oldest') {
+            order = [['createdAt', 'ASC']];
         }
 
         let whereClause: any = {};
-        if (category) {
-            whereClause.category = category;
+        if (hashtag && typeof hashtag === 'string') {
+            // Search for content that contains the hashtag
+            whereClause.content = { [Op.iLike]: `%#${hashtag}%` };
         }
 
-        const publications = await Publication.findAll({
+        const { count, rows: publications } = await Publication.findAndCountAll({
             where: whereClause,
             order: order,
+            limit: limitNumber,
+            offset: offset,
             include: [{ model: User, as: 'author', attributes: ['id', 'username', 'fullname', 'avatar'] }]
         });
 
         const publicationsWithInfo = await addExtraInfoToPublications(publications, userId);
 
-        res.json(publicationsWithInfo);
+        res.json({
+            publications: publicationsWithInfo,
+            nextPage: count > pageNumber * limitNumber ? pageNumber + 1 : undefined,
+        });
+
     } catch (error) {
         console.error('Get all publications error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -155,7 +164,6 @@ export const updatePublication = async (req: Request, res: Response) => {
         const userId = req.user.id;
 
         const publication = await Publication.findByPk(publicationId);
-
         if (!publication) return res.status(404).json({ message: 'Publication not found' });
         if (publication.userId !== userId) return res.status(403).json({ message: 'You are not authorized to edit this publication' });
 
@@ -242,5 +250,28 @@ export const getMyLikedPublications = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Get liked publications error:', error);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// DELETE /api/publications/:publicationId - Delete a Publication
+export const deletePublication = async (req: Request, res: Response) => {
+    try {
+        const { publicationId } = req.params;
+        const userId = req.user.id;
+
+        const publication = await Publication.findByPk(publicationId);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication not found' });
+        }
+
+        if (publication.userId !== userId) {
+            return res.status(403).json({ message: 'You are not authorized to delete this publication' });
+        }
+
+        await publication.destroy();
+        res.status(200).json({ message: 'Publication deleted successfully.' });
+    } catch (error) {
+        console.error('Delete publication error:', error);
+        res.status(500).json({ message: 'Server error while deleting publication.' });
     }
 };
