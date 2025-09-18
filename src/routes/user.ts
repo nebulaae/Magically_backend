@@ -7,9 +7,6 @@ import { uploadAvatar } from '../middleware/upload';
 
 const router = express.Router();
 
-// GET top users (for recommendations)
-router.get('/top', auth, asyncHandler(userController.getTopUsers));
-
 // Search for users
 router.get('/search/users', auth, asyncHandler(userController.searchUsers));
 

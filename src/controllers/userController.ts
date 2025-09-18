@@ -56,37 +56,6 @@ const addIsFollowingInfoToUsers = async (users: User[], currentUserId: string) =
     });
 };
 
-// GET /api/users/top - Get Top Users
-export const getTopUsers = async (req: Request, res: Response) => {
-    try {
-        const currentUserId = req.user.id;
-        const topUsers = await User.findAll({
-            attributes: {
-                include: [[fn('COUNT', col('Followers.followerId')), 'followersCount']]
-            },
-            include: [{
-                model: User,
-                as: 'Followers',
-                attributes: [],
-                duplicating: false,
-            }],
-            group: ['User.id'],
-            order: [[fn('COUNT', col('Followers.followerId')), 'DESC']],
-            limit: 5,
-            subQuery: false,
-            where: {
-                id: { [Op.ne]: currentUserId }
-            }
-        });
-
-        const usersWithInfo = await addIsFollowingInfoToUsers(topUsers, currentUserId);
-        res.json(usersWithInfo);
-    } catch (error) {
-        console.error('Get top users error:', error);
-        res.status(500).json({ message: 'Server error while fetching top users.' });
-    }
-};
-
 // --- Get User Profile ---
 export const getProfile = async (req: Request, res: Response) => {
     try {
@@ -191,6 +160,7 @@ export const getMyFollowers = async (req: Request, res: Response) => {
         const followers = await user.getFollowers({
             attributes: ['id', 'username', 'fullname', 'avatar']
         });
+
 
         const followersWithInfo = await addIsFollowingInfoToUsers(followers, userId);
 
