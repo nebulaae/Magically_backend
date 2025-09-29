@@ -3,9 +3,10 @@ import path from 'path';
 import db from '../config/database';
 
 import { User } from '../models/User';
-import { col, fn, Op } from 'sequelize';
+import { Op } from 'sequelize';
 import { Request, Response } from 'express';
 import { handleUserAction } from '../lib/utils';
+import { getFromCache, setInCache, invalidateCache } from '../config/redis';
 import { Publication } from '../models/Publication';
 import { Subscription } from '../models/Subscription';
 import { LikedPublication } from '../models/LikedPublication';
@@ -62,6 +63,12 @@ export const getProfile = async (req: Request, res: Response) => {
         const { username } = req.params;
         const currentUser = req.user;
 
+        const cacheKey = `user:profile:${username}`;
+        const cachedData = await getFromCache<any>(cacheKey);
+        if (cachedData) {
+            return res.json(cachedData);
+        }
+
         const user = await User.findOne({
             where: { username },
             attributes: { exclude: ['password', 'email'] },
@@ -96,14 +103,17 @@ export const getProfile = async (req: Request, res: Response) => {
 
         const userResponse = user.get({ plain: true });
 
-        res.json({
+        const responseData = {
             ...userResponse,
             publicationsCount,
             followersCount,
             followingCount,
             isFollowing,
-            publications: publicationsWithInfo // [NEW] Return publications
-        });
+            publications: publicationsWithInfo
+        };
+
+        await setInCache(cacheKey, responseData, 3600); // 1 час
+        res.json(responseData);
     } catch (error) {
         console.error('Get profile error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -214,6 +224,9 @@ export const updateProfile = async (req: Request, res: Response) => {
 
         await user.save();
 
+    // Инвалидация кеша профиля
+    await invalidateCache(`user:profile:${user.username}`);
+
         const { password, ...userResponse } = user.get({ plain: true });
         res.json({ message: 'Profile updated successfully', user: userResponse });
 
@@ -247,6 +260,9 @@ export const updateAvatar = async (req: Request, res: Response) => {
         const avatarUrlPath = `/users/avatars/${req.file.filename}`;
         user.avatar = avatarUrlPath;
         await user.save();
+
+    // Инвалидация кеша профиля
+    await invalidateCache(`user:profile:${user.username}`);
 
         const { password, ...userResponse } = user.get({ plain: true });
         res.json({ message: 'Avatar updated successfully', user: userResponse });

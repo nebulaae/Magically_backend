@@ -4,14 +4,17 @@ import { Op } from 'sequelize';
 import { User } from '../models/User';
 import { Comment } from '../models/Comment';
 import { Request, Response } from 'express';
+import { createCacheKey } from '../lib/utils';
 import { Publication } from '../models/Publication';
 import { Subscription } from '../models/Subscription';
 import { LikedPublication } from '../models/LikedPublication';
 import { fetchReplies, handleUserAction } from '../lib/utils';
+import { getFromCache, setInCache, invalidateCache } from '../config/redis';
 
 // --- Get Single Publication by ID with full comment tree ---
 export const getPublicationById = async (req: Request, res: Response) => {
     try {
+
         const { publicationId } = req.params;
         const userId = req.user.id;
 
@@ -106,6 +109,7 @@ export const createPublication = async (req: Request, res: Response) => {
             commentCount: 0
         });
 
+        await invalidateCache(`public:/api/publications`);
         res.status(201).json({ message: 'Publication created successfully', publication });
     } catch (error) {
         console.error('Create publication error:', error);
@@ -115,7 +119,16 @@ export const createPublication = async (req: Request, res: Response) => {
 
 // GET /api/publications - Get All Publications with Pagination and Filtering
 export const getAllPublications = async (req: Request, res: Response) => {
+    const { page = '1', limit = '10', sortBy = 'newest', hashtag = '' } = req.query;
+    const cacheKey = `publications:all:page${page}:limit${limit}:sort${sortBy}:ht${hashtag}`;
+
     try {
+        const cachedData = await getFromCache<any>(cacheKey);
+        if (cachedData) {
+            return res.json(cachedData);
+        }
+
+
         const userId = req.user.id;
         const { page = '1', limit = '10', sortBy, hashtag } = req.query;
 
@@ -146,6 +159,13 @@ export const getAllPublications = async (req: Request, res: Response) => {
 
         const publicationsWithInfo = await addExtraInfoToPublications(publications, userId);
 
+        const responseData = {
+            publications: publicationsWithInfo,
+            nextPage: count > pageNumber * limitNumber ? pageNumber + 1 : undefined,
+        };
+
+        await setInCache(cacheKey, responseData, 300);
+
         res.json({
             publications: publicationsWithInfo,
             nextPage: count > pageNumber * limitNumber ? pageNumber + 1 : undefined,
@@ -168,7 +188,10 @@ export const updatePublication = async (req: Request, res: Response) => {
         if (publication.userId !== userId) return res.status(403).json({ message: 'You are not authorized to edit this publication' });
 
         publication.content = content || publication.content;
+
         await publication.save();
+        await invalidateCache('publications:all:*');
+        await invalidateCache(`user:profile:${userId}`);
 
         res.json({ message: 'Publication updated successfully', publication });
     } catch (error) {
@@ -201,6 +224,8 @@ export const likePublication = async (req: Request, res: Response) => {
             await handleUserAction(user, 10, t);
         });
 
+        await invalidateCache('publications:all:*');
+        await invalidateCache(`user:profile:${userId}`);
         res.status(200).json({ message: 'Publication liked successfully' });
     } catch (error) {
         console.error('Like publication error:', error);
@@ -225,6 +250,8 @@ export const unlikePublication = async (req: Request, res: Response) => {
             }
         });
 
+        await invalidateCache('publications:all:*');
+        await invalidateCache(`user:profile:${userId}`);
         res.status(200).json({ message: 'Publication unliked successfully' });
     } catch (error) {
         if (error.message === 'Not liked') return res.status(404).json({ message: 'You have not liked this publication.' });
@@ -268,6 +295,8 @@ export const deletePublication = async (req: Request, res: Response) => {
             return res.status(403).json({ message: 'You are not authorized to delete this publication' });
         }
 
+        await invalidateCache('publications:all:*');
+        await invalidateCache(`user:profile:${userId}`);
         await publication.destroy();
         res.status(200).json({ message: 'Publication deleted successfully.' });
     } catch (error) {

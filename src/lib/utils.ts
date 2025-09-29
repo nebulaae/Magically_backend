@@ -4,6 +4,13 @@ import { User } from "../models/User";
 import { Transaction } from "sequelize";
 import { Comment } from "../models/Comment";
 
+// Helper to create consistent cache keys
+export const createCacheKey = (req: express.Request) => {
+    const { originalUrl } = req;
+    const userId = req.user?.id || 'public'; // Differentiate cache for different users if needed
+    return `${userId}:${originalUrl}`;
+};
+
 // Manages daily actions and awards tokens atomically.
 export const handleUserAction = async (user: User, tokenAmount: number, t: Transaction) => {
     const now = new Date();

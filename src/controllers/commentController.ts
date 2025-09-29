@@ -5,6 +5,7 @@ import { Comment } from '../models/Comment';
 import { Request, Response } from 'express';
 import { Publication } from '../models/Publication';
 import { fetchReplies, handleUserAction } from '../lib/utils';
+import { getFromCache, setInCache, invalidateCache } from '../config/redis';
 
 // --- Create a Comment ---
 export const createComment = async (req: Request, res: Response) => {
@@ -35,6 +36,9 @@ export const createComment = async (req: Request, res: Response) => {
             await publication.increment('commentCount', { transaction: t });
             await handleUserAction(me, 20, t);
         });
+
+        // Инвалидация кеша комментариев публикации
+        await invalidateCache(`comments:publication:${publicationId}`);
 
         res.status(201).json(comment);
     } catch (error) {
@@ -78,6 +82,9 @@ export const replyToComment = async (req: Request, res: Response) => {
             await publication.increment('commentCount', { transaction: t });
         });
 
+        // Инвалидация кеша комментариев публикации
+        await invalidateCache(`comments:publication:${parentComment.publicationId}`);
+
         res.status(201).json(reply);
 
     } catch (error) {
@@ -90,6 +97,12 @@ export const replyToComment = async (req: Request, res: Response) => {
 export const getCommentsForPublication = async (req: Request, res: Response) => {
     try {
         const { publicationId } = req.params;
+        const cacheKey = `comments:publication:${publicationId}`;
+        const cachedData = await getFromCache<any>(cacheKey);
+        if (cachedData) {
+            return res.status(200).json(cachedData);
+        }
+
         const topLevelComments = await Comment.findAll({
             where: { publicationId, parentId: null },
             include: [{ model: User, as: 'author', attributes: ['id', 'username', 'fullname', 'avatar'] }],
@@ -100,6 +113,7 @@ export const getCommentsForPublication = async (req: Request, res: Response) => 
             (comment as any).dataValues.replies = await fetchReplies(comment);
         }
 
+        await setInCache(cacheKey, topLevelComments, 300);
         res.status(200).json(topLevelComments);
     } catch (error) {
         console.error('Get comments error:', error);
@@ -125,6 +139,9 @@ export const updateComment = async (req: Request, res: Response) => {
 
         comment.text = text;
         await comment.save();
+
+        // Инвалидация кеша комментариев публикации
+        await invalidateCache(`comments:publication:${comment.publicationId}`);
 
         res.status(200).json(comment);
     } catch (error) {
@@ -169,6 +186,9 @@ export const deleteComment = async (req: Request, res: Response) => {
             }
         });
 
+        // Инвалидация кеша комментариев публикации
+        await invalidateCache(`comments:publication:${comment.publicationId}`);
+
         res.status(200).json({ message: 'Comment deleted successfully.' });
     } catch (error) {
         console.error('Delete comment error:', error);
@@ -196,6 +216,9 @@ export const likeComment = async (req: Request, res: Response) => {
             await user.addLikedComment(comment, { transaction: t });
             await comment.increment('likeCount', { transaction: t });
         });
+
+        // Инвалидация кеша комментариев публикации
+        await invalidateCache(`comments:publication:${comment.publicationId}`);
 
         res.status(200).json({ message: 'Comment liked successfully.' });
     } catch (error) {
@@ -232,6 +255,9 @@ export const unlikeComment = async (req: Request, res: Response) => {
                 await comment.decrement('likeCount', { transaction: t });
             }
         });
+
+        // Инвалидация кеша комментариев публикации
+        await invalidateCache(`comments:publication:${comment.publicationId}`);
 
         res.status(200).json({ message: 'Comment unliked successfully.' });
     } catch (error) {

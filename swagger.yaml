@@ -1,0 +1,445 @@
+openapi: '3.0.0'
+info:
+  title: 'Volshebny API Documentation'
+  version: '1.0.0'
+  description: 'Полная документация по API для бэкенд-сервиса Volshebny. Здесь вы найдете все маршруты, их параметры и примеры ответов.'
+  contact:
+    name: 'Volshebny Support'
+    email: 'support@volshebny.com'
+servers:
+  - url: 'http://localhost:5000/api'
+    description: 'Локальный сервер для разработки'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+      description: 'Аутентификация через JWT токен в cookie. Войдите в систему через `/auth/login`, чтобы получить его.'
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        fullname: { type: string }
+        username: { type: string }
+        email: { type: string, format: email }
+        bio: { type: string, nullable: true }
+        avatar: { type: string, nullable: true }
+        interests: { type: array, items: { type: string } }
+        tokens: { type: integer }
+        role: { type: string, enum: [user, admin] }
+        isBlocked: { type: boolean }
+    Publication:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        content: { type: string }
+        imageUrl: { type: string, nullable: true }
+        videoUrl: { type: string, nullable: true }
+        likeCount: { type: integer }
+        commentCount: { type: integer }
+        author: { $ref: '#/components/schemas/User' }
+        isLiked: { type: boolean }
+        isFollowing: { type: boolean }
+    Error:
+      type: object
+      properties:
+        message: { type: string }
+
+security:
+  - cookieAuth: []
+
+tags:
+  - name: Auth
+    description: 'Аутентификация и управление сессиями'
+  - name: Users
+    description: 'Управление профилями пользователей и подписками'
+  - name: Publications
+    description: 'Создание, получение и взаимодействие с публикациями'
+  - name: Comments
+    description: 'Управление комментариями к публикациям'
+  - name: Gallery
+    description: 'Доступ к личной галерее сгенерированных медиа'
+  - name: AI Generation
+    description: 'Маршруты для генерации изображений и видео через различные AI сервисы'
+  - name: Search
+    description: 'Поиск пользователей и публикаций'
+  - name: Admin
+    description: 'Административные функции'
+
+paths:
+  # AUTH ROUTES
+  /auth/register-step-1:
+    post:
+      tags: [Auth]
+      summary: 'Регистрация Шаг 1 - Отправка OTP'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, example: 'user@example.com' }
+      responses:
+        '200': { description: 'OTP успешно отправлен.' }
+        '400': { description: 'Email уже используется и верифицирован.' }
+        '500': { description: 'Ошибка сервера.' }
+
+  /auth/register-step-2:
+    post:
+      tags: [Auth]
+      summary: 'Регистрация Шаг 2 - Верификация OTP'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp]
+              properties:
+                email: { type: string, format: email, example: 'user@example.com' }
+                otp: { type: string, example: '123456' }
+      responses:
+        '200': { description: 'Email успешно верифицирован.' }
+        '400': { description: 'Неверный OTP или истек срок его действия.' }
+        '500': { description: 'Ошибка сервера.' }
+
+  /auth/register-step-3:
+    post:
+      tags: [Auth]
+      summary: 'Регистрация Шаг 3 - Завершение'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, fullname, username, password]
+              properties:
+                email: { type: string, format: email, example: 'user@example.com' }
+                fullname: { type: string, example: 'Test User' }
+                username: { type: string, example: 'testuser' }
+                password: { type: string, format: password, example: 'password123' }
+      responses:
+        '201': { description: 'Пользователь успешно создан.' }
+        '400': { description: 'Все поля обязательны или имя пользователя занято.' }
+        '500': { description: 'Ошибка сервера.' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: 'Вход в систему'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [usernameOrEmail, password]
+              properties:
+                usernameOrEmail: { type: string, example: 'testuser' }
+                password: { type: string, format: password, example: 'password123' }
+      responses:
+        '200': { description: 'Успешный вход.' }
+        '400': { description: 'Неверные учетные данные.' }
+        '500': { description: 'Ошибка сервера.' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 'Выход из системы'
+      responses:
+        '200': { description: 'Успешный выход.' }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: 'Получить данные текущего пользователя'
+      responses:
+        '200': { description: 'Данные пользователя.', content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+        '401': { description: 'Не аутентифицирован.' }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: 'Запрос на сброс пароля'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200': { description: 'Письмо для сброса пароля отправлено.' }
+
+  # USER ROUTES
+  /users/search/users:
+    get:
+      tags: [Users]
+      summary: 'Поиск пользователей'
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: 'Список найденных пользователей.' }
+        '400': { description: 'Требуется поисковый запрос.' }
+
+  /users/me/profile:
+    get:
+      tags: [Users]
+      summary: 'Получить свой полный профиль'
+      responses:
+        '200': { description: 'Данные профиля.' }
+    put:
+      tags: [Users]
+      summary: 'Обновить свой профиль'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullname: { type: string }
+                bio: { type: string }
+                interests: { type: array, items: { type: string } }
+      responses:
+        '200': { description: 'Профиль обновлен.' }
+
+  /users/me/avatar:
+    put:
+      tags: [Users]
+      summary: 'Обновить свой аватар'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                avatar: { type: string, format: binary }
+      responses:
+        '200': { description: 'Аватар обновлен.' }
+
+  /users/{username}:
+    get:
+      tags: [Users]
+      summary: 'Получить профиль пользователя по имени'
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: 'Профиль пользователя.' }
+        '404': { description: 'Пользователь не найден.' }
+
+  /users/{userId}/subscribe:
+    post:
+      tags: [Users]
+      summary: 'Подписаться на пользователя'
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: 'Вы успешно подписались.' }
+        '409': { description: 'Вы уже подписаны.' }
+
+  /users/{userId}/unsubscribe:
+    delete:
+      tags: [Users]
+      summary: 'Отписаться от пользователя'
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: 'Вы успешно отписались.' }
+        '404': { description: 'Вы не были подписаны.' }
+  
+  # PUBLICATION ROUTES
+  /publications:
+    get:
+      tags: [Publications]
+      summary: 'Получить ленту публикаций'
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+        - in: query
+          name: sortBy
+          schema: { type: string, enum: [newest, oldest, popular] }
+        - in: query
+          name: hashtag
+          schema: { type: string }
+      responses:
+        '200': { description: 'Лента публикаций.' }
+    post:
+      tags: [Publications]
+      summary: 'Создать новую публикацию'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                content: { type: string }
+                publicationMedia: { type: string, format: binary }
+      responses:
+        '201': { description: 'Публикация создана.' }
+        '400': { description: 'Публикация должна содержать текст или изображение.' }
+
+  /publications/{publicationId}:
+    get:
+      tags: [Publications]
+      summary: 'Получить одну публикацию по ID'
+      parameters:
+        - in: path
+          name: publicationId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: 'Данные публикации.' }
+        '404': { description: 'Публикация не найдена.' }
+    put:
+      tags: [Publications]
+      summary: 'Обновить свою публикацию'
+      parameters:
+        - in: path
+          name: publicationId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content: { type: string }
+      responses:
+        '200': { description: 'Публикация обновлена.' }
+    delete:
+      tags: [Publications]
+      summary: 'Удалить свою публикацию'
+      parameters:
+        - in: path
+          name: publicationId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: 'Публикация удалена.' }
+  
+  /publications/{publicationId}/like:
+    post:
+      tags: [Publications]
+      summary: 'Лайкнуть публикацию'
+      parameters:
+        - in: path
+          name: publicationId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: 'Публикация лайкнута.' }
+        '409': { description: 'Вы уже лайкнули эту публикацию.' }
+
+  /publications/{publicationId}/unlike:
+    delete:
+      tags: [Publications]
+      summary: 'Убрать лайк с публикации'
+      parameters:
+        - in: path
+          name: publicationId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: 'Лайк убран.' }
+        '404': { description: 'Вы не лайкали эту публикацию.' }
+
+  # GALLERY ROUTES
+  /gallery:
+    get:
+      tags: [Gallery]
+      summary: 'Получить свою галерею'
+      parameters:
+        - in: query
+          name: sortBy
+          schema: { type: string, enum: [newest, oldest] }
+        - in: query
+          name: searchQuery
+          schema: { type: string }
+        - in: query
+          name: date
+          schema: { type: string, format: date }
+      responses:
+        '200': { description: 'Элементы вашей галереи.' }
+
+  # AI GENERATION ROUTES (Example for FAL)
+  /fal/post-process:
+    post:
+      tags: [AI Generation]
+      summary: 'Обработать изображение (Fal.ai)'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                falImage: { type: string, format: binary, description: 'Изображение для обработки' }
+                # Add other specific fal.ai parameters here
+      responses:
+        '200': { description: 'Изображение успешно обработано.' }
+  
+  # ... Add similar detailed documentation for gpt, higgsfield, kling, replicate ...
+
+  # ADMIN ROUTES
+  /admin/login:
+    post:
+      tags: [Admin]
+      summary: 'Вход для администратора'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+      responses:
+        '200': { description: 'Успешный вход.' }
+        '401': { description: 'Неверные учетные данные.' }
+  
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: 'Получить всех пользователей (только для админов)'
+      security:
+        - cookieAuth: []
+      responses:
+        '200': { description: 'Список всех пользователей.' }
+        '403': { description: 'Доступ запрещен.' }
+
+  /admin/users/{userId}/block:
+    put:
+      tags: [Admin]
+      summary: 'Заблокировать пользователя'
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: 'Пользователь заблокирован.' }
