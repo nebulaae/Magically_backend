@@ -11,7 +11,7 @@ export const redisClient = new Redis({
   // Добавлена стратегия переподключения
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);
-    logger.info(`Redis: Retrying connection in ${delay}ms...`);
+    // logger.info(`Redis: Retrying connection in ${delay}ms...`);
     return delay;
   },
 });
@@ -21,7 +21,7 @@ redisClient.on("connect", () => {
 });
 
 redisClient.on("error", (err) => {
-  logger.error(`Redis connection error: ${err.message}`);
+  // logger.error(`Redis connection error: ${err.message}`);
 });
 
 // Проверяем, готов ли клиент к работе

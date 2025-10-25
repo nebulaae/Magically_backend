@@ -37,18 +37,18 @@ const io = new SocketIOServer(server, {
   },
 });
 
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(cookieParser());
 app.use(express.json());
 app.use(metricsMiddleware);
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/v1/", mainRouter);
 app.use(express.static(path.join(__dirname, "../public")));
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL,
-    credentials: true,
-  }),
-);
 app.use(
   pinoHttp({
     logger,
