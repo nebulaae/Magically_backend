@@ -4,13 +4,13 @@ import multer from "multer";
 import { Request } from "express";
 
 // Define the destinations for directories
-const falDir = path.join(__dirname, "../../public/ai/fal");
-const klingDir = path.join(__dirname, "../../public/ai/kling");
-const avatarDir = path.join(__dirname, "../../public/users/avatars");
-const privateDir = path.join(__dirname, "../../private/user_uploads");
-const higgsfieldDir = path.join(__dirname, "../../public/ai/higgsfield");
-const publicationDir = path.join(__dirname, "../../public/publications");
-const replicateDir = path.join(__dirname, "../../public/ai/replicate"); // [NEW]
+export const falDir = path.join(__dirname, "../../public/ai/fal");
+export const klingDir = path.join(__dirname, "../../public/ai/kling");
+export const avatarDir = path.join(__dirname, "../../public/users/avatars");
+export const privateDir = path.join(__dirname, "../../private/user_uploads");
+export const higgsfieldDir = path.join(__dirname, "../../public/ai/higgsfield");
+export const publicationDir = path.join(__dirname, "../../public/publications");
+export const replicateDir = path.join(__dirname, "../../public/ai/replicate");
 
 // Ensure directories exist
 [
@@ -46,7 +46,7 @@ const fileFilter = (
   cb(
     new Error(
       "Error: File upload only supports the following filetypes - " +
-        allowedTypes,
+      allowedTypes,
     ),
   );
 };

@@ -8,7 +8,7 @@ import {
 } from "../../../shared/config/redis";
 import { Comment } from "../models/Comment";
 
-const fetchRepliesRecursive = async (comment: Comment) => {
+const fetchRepliesRecursive = async (comment: Comment) => { 
   const replies = await commentRepository.findRepliesByParentId(comment.id);
   for (const reply of replies) {
     (reply as any).dataValues.replies = await fetchRepliesRecursive(reply);
@@ -82,13 +82,51 @@ export const replyToComment = async (
   return reply;
 };
 
-export const getCommentsForPublication = async (publicationId: string) => {
+export const getCommentsForPublication = async (
+  publicationId: string,
+  userId?: string,
+) => {
   const cacheKey = `comments:publication:${publicationId}`;
   const cachedData = await getFromCache<any>(cacheKey);
+
+  // Helpers
+  const collectIdsRecursive = (node: any, acc: string[]) => {
+    if (!node) return;
+    acc.push(node.id);
+    const replies = node.dataValues ? node.dataValues.replies : node.replies;
+    if (Array.isArray(replies)) {
+      for (const r of replies) collectIdsRecursive(r, acc);
+    }
+  };
+
   if (cachedData) {
-    return cachedData;
+    // cachedData is the neutral (no user overlay) plain JSON stored in cache.
+    if (!userId) return cachedData;
+
+    // clone cached data to avoid mutating shared cache
+    const clone = JSON.parse(JSON.stringify(cachedData));
+    const allIds: string[] = [];
+    for (const c of clone) collectIdsRecursive(c, allIds);
+
+    const likedIds = await commentRepository.findLikedCommentIdsByUserAndCommentIds(
+      userId,
+      allIds,
+    );
+    const likedSet = new Set(likedIds || []);
+
+    const overlayRecursive = (node: any) => {
+      if (!node) return;
+      node.isLiked = likedSet.has(node.id);
+      if (node.replies && Array.isArray(node.replies)) {
+        for (const r of node.replies) overlayRecursive(r);
+      }
+    };
+
+    for (const c of clone) overlayRecursive(c);
+    return clone;
   }
 
+  // No cache: fetch fresh from DB
   const topLevelComments =
     await commentRepository.findTopLevelCommentsByPublicationId(publicationId);
 
@@ -96,7 +134,33 @@ export const getCommentsForPublication = async (publicationId: string) => {
     (comment as any).dataValues.replies = await fetchRepliesRecursive(comment);
   }
 
-  await setInCache(cacheKey, topLevelComments, 300);
+  // Cache neutral plain version (without user overlay)
+  const plainToCache = topLevelComments.map((c: any) => c.get({ plain: true }));
+  await setInCache(cacheKey, plainToCache, 300);
+
+  // If userId provided, overlay isLiked on model instances
+  if (userId) {
+    const allIds: string[] = [];
+    for (const c of topLevelComments) collectIdsRecursive(c, allIds);
+    const likedIds = await commentRepository.findLikedCommentIdsByUserAndCommentIds(
+      userId,
+      allIds,
+    );
+    const likedSet = new Set(likedIds || []);
+
+    const applyRecursive = (node: any) => {
+      if (!node) return;
+      if (node.dataValues) node.dataValues.isLiked = likedSet.has(node.id);
+      else node.isLiked = likedSet.has(node.id);
+      const replies = node.dataValues ? node.dataValues.replies : node.replies;
+      if (Array.isArray(replies)) {
+        for (const r of replies) applyRecursive(r);
+      }
+    };
+
+    for (const c of topLevelComments) applyRecursive(c);
+  }
+
   return topLevelComments;
 };
 

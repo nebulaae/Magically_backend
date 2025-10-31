@@ -45,8 +45,12 @@ export const getCommentsForPublication = async (
 ) => {
   try {
     const { publicationId } = req.params;
-    const comments =
-      await commentService.getCommentsForPublication(publicationId);
+    // pass current user id when available so service can mark isLiked per comment
+    const userId = req.user && (req.user as any).id;
+    const comments = await commentService.getCommentsForPublication(
+      publicationId,
+      userId,
+    );
     apiResponse.success(res, comments);
   } catch (error) {
     logger.error(`Get comments error: ${error.message}`);

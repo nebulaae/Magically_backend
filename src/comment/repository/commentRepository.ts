@@ -82,3 +82,14 @@ export const deleteLikedComment = (
 ) => {
   return LikedComment.destroy({ where: { userId, commentId }, transaction });
 };
+
+export const findLikedCommentIdsByUserAndCommentIds = (
+  userId: string,
+  commentIds: string[],
+) => {
+  if (!commentIds || commentIds.length === 0) return Promise.resolve([] as string[]);
+  return LikedComment.findAll({
+    where: { userId, commentId: commentIds },
+    attributes: ["commentId"],
+  }).then((rows) => rows.map((r: any) => r.commentId));
+};

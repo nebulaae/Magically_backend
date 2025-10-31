@@ -22,6 +22,8 @@ export interface CommentAttributes {
   likeCount: number;
   createdAt?: Date;
   updatedAt?: Date;
+  // Virtual attribute set at runtime to indicate if current user liked the comment
+  isLiked?: boolean;
 }
 
 // --- Comment Model Class ---
@@ -35,6 +37,9 @@ export class Comment
   public publicationId!: string;
   public parentId?: string;
   public likeCount!: number;
+
+  // Virtual flag — not persisted in DB. Will be set by service when fetching per-user.
+  public isLiked?: boolean;
 
   // Timestamps
   public readonly createdAt!: Date;
@@ -93,6 +98,21 @@ Comment.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
+    },
+    isLiked: {
+      // virtual boolean field populated at runtime (not stored in DB)
+      type: DataTypes.VIRTUAL(DataTypes.BOOLEAN),
+      get(this: any) {
+        // allow explicit setDataValue / dataValues overlay
+        if (this && this.dataValues && Object.prototype.hasOwnProperty.call(this.dataValues, "isLiked")) {
+          return this.dataValues.isLiked;
+        }
+        return false;
+      },
+      set(this: any, val: boolean) {
+        if (!this.dataValues) this.dataValues = {};
+        this.dataValues.isLiked = !!val;
+      },
     },
   },
   {
