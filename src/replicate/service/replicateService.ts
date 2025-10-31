@@ -1,9 +1,11 @@
+import dotenv from "dotenv";
 import Replicate from "replicate";
 import logger from "../../../shared/utils/logger";
 import { Transaction } from "sequelize";
-import { User } from "../../user/models/User";
 import { ReplicateStatus } from "../../../shared/types/types";
 import * as replicateRepository from "../repository/replicateRepository";
+
+dotenv.config();
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API,

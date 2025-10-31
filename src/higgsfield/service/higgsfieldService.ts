@@ -2,13 +2,16 @@ import fs from "fs";
 import path from "path";
 import http from "http";
 import axios from "axios";
+import dotenv from "dotenv";
 import logger from "../../../shared/utils/logger";
 import { v4 as uuidv4 } from "uuid";
 import * as higgsfieldRepository from "../repository/higgsfieldRepository";
 
+dotenv.config();
+
 const HIGGSFIELD_API_URL = "https://api.unifically.com/higgsfield";
 const HIGGSFIELD_API_KEY = process.env.HIGGSFIELD_API;
-const httpAgent = new http.Agent({ keepAlive: false });
+const httpAgent = new http.Agent({ keepAlive: true });
 
 export const generateVideo = async (apiPayload: any, imageUrls: string[]) => {
   const requestBody = { ...apiPayload, image: imageUrls };

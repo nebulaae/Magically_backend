@@ -2,35 +2,38 @@ import fs from "fs";
 import http from "http";
 import path from "path";
 import axios from "axios";
+import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../../../shared/utils/logger";
 import * as gptRepository from "../repository/gptRepository";
 
-const GPT_API_URL = "https://api.unifically.com/v1/chat/completions";
+dotenv.config()
+
+const GPT_API_URL = "https://api.unifically.com/gpt-image-1/generate";
 const API_KEY = process.env.GPT_API;
 const httpAgent = new http.Agent({ keepAlive: true });
 
 export const generateGptImage = async (prompt: string) => {
-  const payload = {
-    model: "gpt-4o-image-vip",
-    messages: [{ role: "user", content: prompt }],
-  };
-
   try {
-    const response = await axios.post(GPT_API_URL, payload, {
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      httpAgent,
-      timeout: 1200000,
-    });
+    const response = await axios.post(
+      GPT_API_URL,
+      { prompt },
+      {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        httpAgent,
+        timeout: 1200000,
+      }
+    );
+
     return response.data;
   } catch (error) {
     logger.error(
-      `Error generating GPT image: ${error.response?.data || error.message}`,
+      `Error generating GPT image: ${JSON.stringify(error.response?.data || error.message)}, API_KEY: ${API_KEY}`
     );
-    throw new Error("Failed to generate image with GPT-4o.");
+    throw new Error("Failed to generate image with GPT.");
   }
 };
 

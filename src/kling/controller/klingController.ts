@@ -39,31 +39,50 @@ export const generateAndPollKlingVideo = async (
     };
 
     const genResponse = await klingService.generateKlingVideo(payload);
-    if (!genResponse.success || !genResponse.data.id) {
-      throw new Error("Failed to get a task ID from Kling.");
+    let taskId: string | undefined;
+    try {
+      if (genResponse == null) taskId = undefined;
+      else if (typeof genResponse === "string") {
+        const parsed = JSON.parse(genResponse);
+        taskId = parsed?.data_id || parsed?.task_id || parsed?.data?.task_id;
+      } else {
+        taskId =
+          genResponse?.data_id ||
+          genResponse?.task_id ||
+          genResponse?.data?.task_id ||
+          genResponse?.data?.data_id ||
+          genResponse?.data?.id;
+      }
+    } catch (e) {
+      taskId = undefined;
     }
 
-    const taskId = genResponse.data.id;
+    if (!taskId) {
+      // include a bit of the response to help debugging
+      const shortResp = JSON.stringify(genResponse).slice(0, 1000);
+      throw new Error(`Failed to get a task ID from Kling. Response: ${shortResp}`);
+    }
+
+    const taskIdFinal = taskId;
     let videoUrl: string | null = null;
     for (let attempts = 0; attempts < 60; attempts++) {
       await sleep(5000);
       try {
-        const statusResponse = await klingService.getKlingVideoStatus(taskId);
-        if (
-          statusResponse.success &&
-          statusResponse.data.status === "completed"
-        ) {
-          videoUrl = statusResponse.data.video_url;
+        const statusResponse = await klingService.getKlingVideoStatus(taskIdFinal);
+        const status = statusResponse?.data?.status || statusResponse?.status;
+        if (status === "completed") {
+          videoUrl =
+            statusResponse?.data?.video_url ||
+            statusResponse?.data?.output?.video_url ||
+            statusResponse?.video_url ||
+            null;
           break;
-        } else if (
-          !statusResponse.success ||
-          statusResponse.data.status === "failed"
-        ) {
+        } else if (status === "failed") {
           throw new Error("Kling video generation failed.");
         }
       } catch (pollError) {
         logger.warn(
-          `Polling attempt ${attempts + 1} for Kling task ${taskId} failed: ${pollError.message}`,
+          `Polling attempt ${attempts + 1} for Kling task ${taskIdFinal} failed: ${pollError.message}`,
         );
       }
     }
