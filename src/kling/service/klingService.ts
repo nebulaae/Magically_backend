@@ -33,6 +33,8 @@ export const generateKlingVideo = async (payload: KlingGenerationPayload) => {
       httpAgent,
     });
 
+    console.log(response.data)
+
     return response.data;
   } catch (error) {
     logger.error(

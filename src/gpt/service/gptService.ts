@@ -37,6 +37,24 @@ export const generateGptImage = async (prompt: string) => {
   }
 };
 
+export const getGptImageStatus = async (taskId: string) => {
+  try {
+    const statusUrl = `https://api.unifically.com/gpt-image-1/status/${taskId}`;
+    const response = await axios.get(statusUrl, {
+      headers: { Authorization: `Bearer ${API_KEY}` },
+      httpAgent,
+      validateStatus: () => true,
+    });
+    return response.data;
+  } catch (error: any) {
+    logger.error(
+      `Error getting GPT image status for task ${taskId}: ${error.response?.data || error.message}`,
+    );
+    if (error.response && error.response.data) return error.response.data;
+    throw new Error("Failed to get GPT image generation status.");
+  }
+};
+
 const downloadImage = async (
   imageUrl: string,
   destinationDir: "gpt" | "fal",

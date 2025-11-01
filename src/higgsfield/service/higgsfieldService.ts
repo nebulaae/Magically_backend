@@ -27,6 +27,9 @@ export const generateVideo = async (apiPayload: any, imageUrls: string[]) => {
         httpAgent,
       },
     );
+
+    console.log(response.data)
+
     return response.data;
   } catch (error) {
     logger.error(

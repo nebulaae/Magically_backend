@@ -39,6 +39,9 @@ export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
       apiPayload,
       imageUrls,
     );
+
+    console.log(generationResponse)
+
     const taskId = generationResponse.id;
     if (!taskId) throw new Error("Failed to get a task ID from Higgsfield.");
 
