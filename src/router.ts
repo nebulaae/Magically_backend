@@ -3,7 +3,6 @@ import YAML from "yamljs";
 import express from "express";
 import swaggerUi from "swagger-ui-express";
 
-import falRoutes from "./fal/fal";
 import gptRoutes from "./gpt/gpt";
 import nanoRoutes from "./nano/nano";
 import authRoutes from "./auth/auth";
@@ -29,7 +28,6 @@ router.get("/health", (req, res) => {
 router.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Functional Routes
-router.use("/fal", falRoutes);
 router.use("/gpt", gptRoutes);
 router.use("/nano", nanoRoutes);
 router.use("/auth", authRoutes);

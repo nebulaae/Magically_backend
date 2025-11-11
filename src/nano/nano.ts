@@ -3,10 +3,15 @@ import * as nanoController from "./controller/nanoController";
 
 import { auth } from "../../shared/middleware/auth";
 import { asyncHandler } from "../../shared/utils/asyncHandler";
-// Not adding multer, as the API doc shows `image_urls` not file uploads
+import { uploadNanoImages } from "../../shared/middleware/upload";
 
 const router = express.Router();
 
-router.post("/generate", auth, asyncHandler(nanoController.generateImage));
+router.post(
+  "/generate",
+  auth,
+  uploadNanoImages,
+  asyncHandler(nanoController.generateImage),
+);
 
 export default router;

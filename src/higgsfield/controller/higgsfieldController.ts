@@ -9,79 +9,83 @@ import * as apiResponse from "../../../shared/utils/apiResponse";
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
-  const { enhance_prompt, seed, width, height, motion_id, prompt, model } =
-    req.body;
+  const { prompt, motion_id, model, enhance_prompt, seed } = req.body;
   const files = req.files as Express.Multer.File[];
   const userId = req.user.id;
 
-  if (!files || files.length === 0) {
-    return apiResponse.badRequest(res, "At least one image is required.");
+  if (!prompt || !motion_id) {
+    return apiResponse.badRequest(
+      res,
+      "Both 'prompt' and 'motion_id' are required."
+    );
   }
+
+  if (!files || files.length < 1) {
+    return apiResponse.badRequest(
+      res,
+      "At least one image (start frame) is required."
+    );
+  }
+
+  const startImageUrl = `${process.env.BACKEND_URL}/ai/higgsfield/${files[0].filename}`;
+  const endImageUrl =
+    files.length > 1
+      ? `${process.env.BACKEND_URL}/ai/higgsfield/${files[1].filename}`
+      : undefined;
 
   const t = await db.transaction();
   try {
     await deductTokensForGeneration(userId, "video", t);
-    const imageUrls = files.map(
-      (file) => `${process.env.BACKEND_URL}/ai/higgsfield/${file.filename}`,
-    );
 
-    const apiPayload = {
-      motion_id,
+    const payload = {
       prompt,
-      enhance_prompt: enhance_prompt === "true",
-      seed: parseInt(seed, 10),
-      width: parseInt(width, 10),
-      height: parseInt(height, 10),
+      motion_id,
       model: model || "standard",
+      enhance_prompt: enhance_prompt === "true" || false,
+      seed: seed ? parseInt(seed, 10) : undefined,
+      start_image_url: startImageUrl,
+      end_image_url: endImageUrl,
     };
 
-    const generationResponse = await higgsfieldService.generateVideo(
-      apiPayload,
-      imageUrls,
-    );
+    const genResponse = await higgsfieldService.generateVideo(payload);
+    const taskId =
+      genResponse?.data?.task_id ||
+      genResponse?.task_id ||
+      genResponse?.data_id;
 
-    console.log(generationResponse)
+    if (!taskId) {
+      throw new Error("Failed to retrieve task_id from Higgsfield response.");
+    }
 
-    const taskId = generationResponse.id;
-    if (!taskId) throw new Error("Failed to get a task ID from Higgsfield.");
-
-    let videoResultUrl;
+    let videoUrl: string | null = null;
     for (let attempts = 0; attempts < 60; attempts++) {
       await sleep(5000);
-      try {
-        const statusResponse = await higgsfieldService.getVideo(taskId);
-        const job = statusResponse.jobs?.[0];
-        if (job?.status === "completed") {
-          videoResultUrl = job.result.url;
-          break;
-        } else if (job?.status === "failed") {
-          throw new Error("Video generation failed at Higgsfield.");
-        }
-      } catch (pollError) {
-        logger.warn(
-          `Polling attempt ${attempts + 1} for Higgsfield task ${taskId} failed: ${pollError.message}`,
-        );
+      const statusResponse = await higgsfieldService.getVideoStatus(taskId);
+      const status = statusResponse?.data?.status;
+      if (status === "completed") {
+        videoUrl =
+          statusResponse?.data?.output?.video_url ||
+          statusResponse?.output?.video_url;
+        break;
+      } else if (status === "failed") {
+        throw new Error("Video generation failed at Higgsfield.");
       }
     }
 
-    if (!videoResultUrl) throw new Error("Video generation timed out.");
+    if (!videoUrl) {
+      throw new Error("Video generation timed out or no video returned.");
+    }
 
     await t.commit();
     apiResponse.success(
       res,
-      {
-        videoUrl: videoResultUrl,
-        prompt: prompt,
-      },
-      "Video generated successfully. Please confirm your action.",
+      { videoUrl, prompt },
+      "Video generated successfully."
     );
-  } catch (error) {
+  } catch (error: any) {
     await t.rollback();
-    logger.error(`Higgsfield video generation process error: ${error.message}`);
-    apiResponse.internalError(
-      res,
-      error.message || "An error occurred during video generation.",
-    );
+    logger.error(`Higgsfield generation error: ${error.message}`);
+    apiResponse.internalError(res, error.message);
   } finally {
     files?.forEach((file) => {
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
@@ -94,7 +98,7 @@ export const processHiggsfieldVideo = async (req: Request, res: Response) => {
   const userId = req.user.id;
 
   if (!videoUrl) {
-    return apiResponse.badRequest(res, "Video URL is required for processing.");
+    return apiResponse.badRequest(res, "Video URL is required.");
   }
 
   try {
@@ -102,14 +106,28 @@ export const processHiggsfieldVideo = async (req: Request, res: Response) => {
       publish,
       userId,
       videoUrl,
-      prompt,
+      prompt
     );
     const message = publish
       ? "Video published successfully."
       : "Video saved to your private gallery.";
     apiResponse.success(res, result, message, 201);
-  } catch (error) {
-    logger.error(`Error processing Higgsfield video: ${error.message}`);
-    apiResponse.internalError(res, "Failed to process video.");
+  } catch (error: any) {
+    logger.error(`Higgsfield process error: ${error.message}`);
+    apiResponse.internalError(res, error.message);
+  }
+};
+
+export const getHiggsfieldMotions = async (req: Request, res: Response) => {
+  try {
+    const { size, cursor } = req.query;
+    const result = await higgsfieldService.getMotions(
+      size ? parseInt(size as string, 10) : 30,
+      cursor ? parseInt(cursor as string, 10) : undefined
+    );
+    apiResponse.success(res, result, "Fetched Higgsfield motion presets.");
+  } catch (error: any) {
+    logger.error(`Error fetching Higgsfield motions: ${error.message}`);
+    apiResponse.internalError(res, error.message);
   }
 };

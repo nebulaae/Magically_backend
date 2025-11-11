@@ -3,7 +3,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { getUserSocketId } from "../utils/socketManager";
 import { GenerationJob } from "../../src/publication/models/GenerationJob";
 import { getKlingVideoStatus } from "../../src/kling/service/klingService";
-import { getVideo as getHiggsfieldStatus } from "../../src/higgsfield/service/higgsfieldService";
+import { getVideoStatus as getHiggsfieldStatus } from "../../src/higgsfield/service/higgsfieldService";
 
 const POLLING_INTERVAL = 15000; // Poll every 15 seconds
 

@@ -22,4 +22,10 @@ router.post(
   asyncHandler(higgsfieldController.processHiggsfieldVideo),
 );
 
+router.get(
+  "/motions",
+  auth,
+  asyncHandler(higgsfieldController.getHiggsfieldMotions)
+);
+
 export default router;

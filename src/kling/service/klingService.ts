@@ -37,11 +37,13 @@ export const generateKlingVideo = async (payload: KlingGenerationPayload) => {
 
     return response.data;
   } catch (error) {
+    // [FIX] Добавлен JSON.stringify для подробного логирования ошибок API
+    const errorMessage = error.response?.data ? JSON.stringify(error.response.data) : error.message;
     logger.error(
-      `Error generating Kling video: ${error.response?.data || error.message}`,
+      `Error generating Kling video: ${errorMessage}`,
     );
     throw new Error("Failed to start Kling video generation.");
-  }
+  };
 };
 
 export const getKlingVideoStatus = async (taskId: string) => {

@@ -1,15 +1,16 @@
+import fs from "fs"; // [FIX] Импорт fs для удаления файлов
 import db from "../../../shared/config/database";
 import { logger } from "../../../shared/utils/logger";
 import { Request, Response } from "express";
 import { deductTokensForGeneration } from "../../../shared/utils/userActions";
 import * as nanoService from "../service/nanoService";
-import * as generationJobsService from "../../job/service/jobService";
 import * as apiResponse from "../../../shared/utils/apiResponse";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const generateImage = async (req: Request, res: Response) => {
-    const { prompt, aspect_ratio, image_urls } = req.body;
+    const { prompt, aspect_ratio } = req.body;
+    const files = req.files as Express.Multer.File[];
     const userId = req.user.id;
 
     if (!prompt) {
@@ -25,9 +26,19 @@ export const generateImage = async (req: Request, res: Response) => {
             aspect_ratio?: string;
             image_urls?: string[];
         } = { prompt };
+
         if (aspect_ratio) payload.aspect_ratio = aspect_ratio;
-        if (image_urls && Array.isArray(image_urls) && image_urls.length > 0) {
-            payload.image_urls = image_urls;
+
+        if (files && files.length > 0) {
+            payload.image_urls = files.map(
+                (file) => `${process.env.BACKEND_URL}/ai/nano/${file.filename}`,
+            );
+        } else if (
+            req.body.image_urls &&
+            Array.isArray(req.body.image_urls) &&
+            req.body.image_urls.length > 0
+        ) {
+            payload.image_urls = req.body.image_urls;
         }
 
         const nanoResponse = await nanoService.generateNanoImage(payload);
@@ -37,10 +48,9 @@ export const generateImage = async (req: Request, res: Response) => {
             throw new Error("Failed to get a task ID from Nano API.");
         }
 
-        // Poll for status
         let finalImageUrl: string | null = null;
         for (let attempts = 0; attempts < 60; attempts++) {
-            await sleep(5000); // 5-second polling
+            await sleep(1000);
             try {
                 const statusResponse = await nanoService.getNanoImageStatus(taskId);
                 const status = statusResponse?.data?.status;
@@ -54,29 +64,29 @@ export const generateImage = async (req: Request, res: Response) => {
                         "Nano image generation failed.";
                     throw new Error(errMsg);
                 }
+                // Если status 'processing' или 'pending', просто продолжаем цикл
             } catch (pollError: any) {
                 logger.warn(
-                    `Polling attempt ${attempts + 1} for Nano task ${taskId} failed: ${pollError.message}`,
+                    `Polling attempt ${attempts + 1
+                    } for Nano task ${taskId} failed: ${pollError.message}`,
                 );
             }
         }
 
         if (!finalImageUrl) {
-            throw new Error("API did not return an image URL or generation timed out.");
+            throw new Error(
+                "API did not return an image URL or generation timed out.",
+            );
         }
 
-        // Create a pending generation job
-        const job = await generationJobsService.createJob(
-            userId,
-            "nano",
-            prompt,
-            finalImageUrl,
-        );
-
         await t.commit();
+
         apiResponse.success(
             res,
-            job, // Return the full job object
+            {
+                imageUrl: finalImageUrl,
+                prompt: prompt,
+            },
             "Image generated successfully. Please confirm your action.",
         );
     } catch (error) {
@@ -86,5 +96,10 @@ export const generateImage = async (req: Request, res: Response) => {
             res,
             error.message || "An error occurred during the image generation process.",
         );
+    } finally {
+        // [FIX] Очищаем загруженные файлы в любом случае
+        files?.forEach((file) => {
+            if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        });
     }
 };

@@ -6,6 +6,7 @@ import { Request } from "express";
 // Define the destinations for directories
 export const falDir = path.join(__dirname, "../../public/ai/fal");
 export const klingDir = path.join(__dirname, "../../public/ai/kling");
+export const nanoDir = path.join(__dirname, "../../public/ai/nano");
 export const avatarDir = path.join(__dirname, "../../public/users/avatars");
 export const privateDir = path.join(__dirname, "../../private/user_uploads");
 export const higgsfieldDir = path.join(__dirname, "../../public/ai/higgsfield");
@@ -15,6 +16,7 @@ export const replicateDir = path.join(__dirname, "../../public/ai/replicate");
 // Ensure directories exist
 [
   falDir,
+  nanoDir,
   klingDir,
   avatarDir,
   privateDir,
@@ -22,11 +24,12 @@ export const replicateDir = path.join(__dirname, "../../public/ai/replicate");
   publicationDir,
   replicateDir,
 ].forEach((dir) => {
-  // [NEW]
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 });
+
+
 
 // File filter to only accept image files
 const fileFilter = (
@@ -178,3 +181,19 @@ export const uploadReplicateImages = multer({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB total might be needed
   fileFilter: fileFilter,
 }).array("replicateImages", 15);
+
+export const uploadNanoImages = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, nanoDir);
+    },
+    filename: (req: Request, file, cb) => {
+      const userId = req.user.id;
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const extension = path.extname(file.originalname);
+      cb(null, `nano-${userId}-${uniqueSuffix}${extension}`);
+    },
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
+  fileFilter: fileFilter,
+}).single("nanoImage");
