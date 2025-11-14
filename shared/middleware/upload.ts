@@ -163,7 +163,7 @@ export const uploadHiggsfieldImage = multer({
   }),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
   fileFilter: fileFilter,
-}).array("higgsfieldImage", 10);
+}).array("higgsfieldImage", 2);
 
 // Storage for Replicate training images
 export const uploadReplicateImages = multer({
