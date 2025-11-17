@@ -5,128 +5,145 @@ import { Request, Response } from "express";
 import { deductTokensForGeneration } from "../../../shared/utils/userActions";
 import * as klingService from "../service/klingService";
 import * as apiResponse from "../../../shared/utils/apiResponse";
+import * as historyService from "../../history/service/historyService";
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-export const generateAndPollKlingVideo = async (
-  req: Request,
-  res: Response,
-) => {
-  const { model, prompt, duration, aspect_ratio, negative_prompt, effect } =
-    req.body;
+export const generateVideo = async (req: Request, res: Response) => {
+  const { prompt, duration = 5, mode = "std" } = req.body;
   const file = req.file;
   const userId = req.user.id;
 
-  if (!file) {
-    return apiResponse.badRequest(
-      res,
-      "An image is required for Kling generation.",
-    );
+  if (!prompt) {
+    return apiResponse.badRequest(res, "Prompt is required.");
   }
 
   const t = await db.transaction();
   try {
     await deductTokensForGeneration(userId, "video", t);
-    const imageUrl = `${process.env.BACKEND_URL}/ai/kling/${file.filename}`;
-    const payload = {
-      model: model || "2.1-master",
-      image_url: imageUrl,
+
+    const payload: {
+      prompt: string;
+      duration: number;
+      mode: "std" | "pro";
+      image_url?: string;
+    } = {
       prompt,
-      duration: parseInt(duration, 10) || 5,
-      aspect_ratio: aspect_ratio || "16:9",
-      negative_prompt,
-      effect,
+      duration: parseInt(duration, 10),
+      mode,
     };
 
-    const genResponse = await klingService.generateKlingVideo(payload);
-    let taskId: string | undefined;
-    try {
-      if (genResponse == null) taskId = undefined;
-      else if (typeof genResponse === "string") {
-        const parsed = JSON.parse(genResponse);
-        taskId = parsed?.data_id || parsed?.task_id || parsed?.data?.task_id;
-      } else {
-        taskId =
-          genResponse?.data_id ||
-          genResponse?.task_id ||
-          genResponse?.data?.task_id ||
-          genResponse?.data?.data_id ||
-          genResponse?.data?.id;
-      }
-    } catch (e) {
-      taskId = undefined;
+    if (file) {
+      payload.image_url = `${process.env.BACKEND_URL}/ai/kling/${file.filename}`;
     }
+
+    const genResponse = await klingService.generateKlingVideo(payload);
+    const taskId = genResponse?.data?.task_id;
 
     if (!taskId) {
-      // include a bit of the response to help debugging
-      const shortResp = JSON.stringify(genResponse).slice(0, 1000);
-      throw new Error(`Failed to get a task ID from Kling. Response: ${shortResp}`);
+      throw new Error("Failed to get a task ID from Kling.");
     }
 
-    const taskIdFinal = taskId;
-    let videoUrl: string | null = null;
-    for (let attempts = 0; attempts < 60; attempts++) {
-      await sleep(5000);
-      try {
-        const statusResponse = await klingService.getKlingVideoStatus(taskIdFinal);
-        const status = statusResponse?.data?.status || statusResponse?.status;
-        if (status === "completed") {
-          videoUrl =
-            statusResponse?.data?.video_url ||
-            statusResponse?.data?.output?.video_url ||
-            statusResponse?.video_url ||
-            null;
-          break;
-        } else if (status === "failed") {
-          throw new Error("Kling video generation failed.");
-        }
-      } catch (pollError) {
-        logger.warn(
-          `Polling attempt ${attempts + 1} for Kling task ${taskIdFinal} failed: ${pollError.message}`,
-        );
-      }
-    }
-
-    if (!videoUrl) throw new Error("Kling video generation timed out.");
+    const history = await historyService.createGenerationHistory({
+      userId,
+      service: "kling",
+      serviceTaskId: taskId,
+      tokensSpent: 40,
+      prompt,
+      metadata: { duration, mode, image_url: payload.image_url },
+    });
 
     await t.commit();
+
+    // Background polling
+    pollKlingStatus(taskId, history.id).catch((err) =>
+      logger.error(`Background polling error: ${err.message}`),
+    );
+
     apiResponse.success(
       res,
-      { videoUrl, prompt },
-      "Video generated successfully. Please confirm your action.",
+      { historyId: history.id, taskId },
+      "Video generation started.",
+      202,
     );
   } catch (error) {
     await t.rollback();
-    logger.error(`Kling video generation process error: ${error.message}`);
-    apiResponse.internalError(
-      res,
-      error.message || "An error occurred during video generation.",
-    );
+    logger.error(`Kling video generation error: ${error.message}`);
+    apiResponse.internalError(res, error.message);
   } finally {
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+    if (file && fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
     }
   }
 };
 
-export const processKlingVideo = async (req: Request, res: Response) => {
-  const { publish, videoUrl, prompt } = req.body;
+const pollKlingStatus = async (taskId: string, historyId: string) => {
+  const sleep = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  for (let attempts = 0; attempts < 60; attempts++) {
+    await sleep(5000);
+    try {
+      const statusResponse = await klingService.getKlingVideoStatus(taskId);
+      const status = statusResponse?.data?.status;
+
+      if (status === "completed") {
+        const videoUrl = statusResponse?.data?.video_url;
+        await historyService.updateHistoryStatus(historyId, "completed", {
+          resultUrl: videoUrl,
+        });
+        logger.info(`Kling generation ${taskId} completed.`);
+        return;
+      } else if (status === "failed") {
+        const errMsg =
+          statusResponse?.data?.error?.message || "Generation failed.";
+        await historyService.updateHistoryStatus(historyId, "failed", {
+          errorMessage: errMsg,
+        });
+        logger.error(`Kling generation ${taskId} failed: ${errMsg}`);
+        return;
+      }
+    } catch (pollError: any) {
+      logger.warn(`Polling attempt ${attempts + 1} failed: ${pollError.message}`);
+    }
+  }
+
+  await historyService.updateHistoryStatus(historyId, "failed", {
+    errorMessage: "Generation timed out.",
+  });
+};
+
+export const processVideo = async (req: Request, res: Response) => {
+  const { publish, historyId } = req.body;
   const userId = req.user.id;
 
-  if (!videoUrl) {
-    return apiResponse.badRequest(res, "Video URL is required for processing.");
+  if (!historyId) {
+    return apiResponse.badRequest(res, "History ID is required.");
   }
 
   try {
+    const history = await historyService.getHistoryById(historyId);
+
+    if (history.userId !== userId) {
+      return apiResponse.forbidden(res, "Access denied.");
+    }
+
+    if (history.status !== "completed") {
+      return apiResponse.badRequest(res, "Generation is not completed yet.");
+    }
+
+    if (!history.resultUrl) {
+      return apiResponse.badRequest(res, "No result available.");
+    }
+
     const result = await klingService.processFinalVideo(
       publish,
       userId,
-      videoUrl,
-      prompt,
+      history.resultUrl,
+      history.prompt || "",
     );
+
     const message = publish
       ? "Video published successfully."
-      : "Video saved to your private gallery.";
+      : "Video saved to your gallery.";
     apiResponse.success(res, result, message, 201);
   } catch (error) {
     logger.error(`Error processing Kling video: ${error.message}`);

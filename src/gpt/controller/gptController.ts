@@ -1,15 +1,16 @@
+import fs from "fs";
 import db from "../../../shared/config/database";
 import { logger } from "../../../shared/utils/logger";
 import { Request, Response } from "express";
 import { deductTokensForGeneration } from "../../../shared/utils/userActions";
 import * as gptService from "../service/gptService";
 import * as apiResponse from "../../../shared/utils/apiResponse";
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+import * as historyService from "../../history/service/historyService";
 
 export const generateImage = async (req: Request, res: Response) => {
   const { prompt } = req.body;
   const userId = req.user.id;
+  const files = req.files as Express.Multer.File[];
 
   if (!prompt) {
     return apiResponse.badRequest(res, "Prompt is required.");
@@ -19,109 +20,127 @@ export const generateImage = async (req: Request, res: Response) => {
   try {
     await deductTokensForGeneration(userId, "image", t);
 
-    const gptResponse = await gptService.generateGptImage(prompt);
-
-    // If API returns immediate content (like choices array), handle that first
-    let finalImageUrl: string | null = null;
-    try {
-      if (gptResponse?.choices && Array.isArray(gptResponse.choices) && gptResponse.choices.length) {
-        const rawImageUrl = gptResponse.choices[0]?.message?.content;
-        finalImageUrl = gptService.extractImageUrl(rawImageUrl);
-      }
-    } catch (e) {
-      finalImageUrl = null;
+    const imageUrls: string[] = [];
+    if (files && files.length > 0) {
+      files.forEach((file) => {
+        imageUrls.push(`${process.env.BACKEND_URL}/ai/gpt/${file.filename}`);
+      });
     }
 
-    // If no immediate URL, try to extract task id and poll status endpoint
-    if (!finalImageUrl) {
-      let taskId: string | undefined;
-      try {
-        if (gptResponse == null) taskId = undefined;
-        else if (typeof gptResponse === "string") {
-          const parsed = JSON.parse(gptResponse);
-          taskId = parsed?.data_id || parsed?.task_id || parsed?.data?.task_id;
-        } else {
-          taskId =
-            gptResponse?.data_id ||
-            gptResponse?.task_id ||
-            gptResponse?.data?.task_id ||
-            gptResponse?.data?.data_id ||
-            gptResponse?.data?.id;
-        }
-      } catch (e) {
-        taskId = undefined;
-      }
+    const gptResponse = await gptService.generateGptImage(prompt, imageUrls);
+    const taskId = gptResponse?.data?.task_id;
 
-      if (!taskId) {
-        const shortResp = JSON.stringify(gptResponse).slice(0, 1000);
-        throw new Error(`Failed to get a task ID from GPT image API. Response: ${shortResp}`);
-      }
-
-      // Poll for status
-      for (let attempts = 0; attempts < 60; attempts++) {
-        await sleep(5000);
-        try {
-          const statusResponse = await gptService.getGptImageStatus(taskId);
-          const status = statusResponse?.data?.status || statusResponse?.status;
-          if (status === "completed") {
-            finalImageUrl =
-              statusResponse?.data?.output?.image_url ||
-              statusResponse?.data?.image_url ||
-              null;
-            break;
-          } else if (status === "failed") {
-            const errMsg = statusResponse?.data?.error?.message || "GPT image generation failed.";
-            throw new Error(errMsg);
-          }
-        } catch (pollError: any) {
-          logger.warn(`Polling attempt ${attempts + 1} for GPT task ${taskId} failed: ${pollError.message}`);
-        }
-      }
+    if (!taskId) {
+      throw new Error("Failed to retrieve task_id from GPT response.");
     }
 
-    console.log(gptResponse);
-
-    if (!finalImageUrl) {
-      throw new Error("API did not return an image URL or generation timed out.");
-    }
+    // Create history record
+    const history = await historyService.createGenerationHistory({
+      userId,
+      service: "gpt",
+      serviceTaskId: taskId,
+      tokensSpent: 15,
+      prompt,
+      metadata: { imageUrls },
+    });
 
     await t.commit();
+
+    // Start background polling (non-blocking)
+    pollGptStatus(taskId, history.id).catch((err) =>
+      logger.error(`Background polling error: ${err.message}`),
+    );
+
     apiResponse.success(
       res,
-      {
-        imageUrl: finalImageUrl,
-        prompt: prompt,
-      },
-      "Image generated successfully. Please confirm your action.",
+      { historyId: history.id, taskId },
+      "Image generation started.",
+      202,
     );
-  } catch (error) {
+  } catch (error: any) {
     await t.rollback();
-    logger.error(`GPT image generation process error: ${error.message}`);
-    apiResponse.internalError(
-      res,
-      error.message || "An error occurred during the image generation process.",
-    );
+    logger.error(`GPT image generation error: ${error.message}`);
+    apiResponse.internalError(res, error.message);
+  } finally {
+    files?.forEach((file) => {
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    });
   }
 };
 
+// Background polling
+const pollGptStatus = async (taskId: string, historyId: string) => {
+  const sleep = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  for (let attempts = 0; attempts < 60; attempts++) {
+    await sleep(5000);
+    try {
+      const statusResponse = await gptService.getGptImageStatus(taskId);
+      const status = statusResponse?.data?.status;
+
+      if (status === "completed") {
+        const imageUrl = statusResponse?.data?.output?.image_url;
+        await historyService.updateHistoryStatus(historyId, "completed", {
+          resultUrl: imageUrl,
+        });
+        logger.info(`GPT generation ${taskId} completed.`);
+        return;
+      } else if (status === "failed") {
+        const errMsg =
+          statusResponse?.data?.error?.message || "Generation failed.";
+        await historyService.updateHistoryStatus(historyId, "failed", {
+          errorMessage: errMsg,
+        });
+        logger.error(`GPT generation ${taskId} failed: ${errMsg}`);
+        return;
+      }
+    } catch (pollError: any) {
+      logger.warn(`Polling attempt ${attempts + 1} failed: ${pollError.message}`);
+    }
+  }
+
+  await historyService.updateHistoryStatus(historyId, "failed", {
+    errorMessage: "Generation timed out.",
+  });
+};
+
 export const processImage = async (req: Request, res: Response) => {
-  const { publish, imageUrl, prompt } = req.body;
+  const { publish, historyId } = req.body;
   const userId = req.user.id;
 
-  if (!imageUrl) {
-    return apiResponse.badRequest(res, "Image URL is required for processing.");
+  if (!historyId) {
+    return apiResponse.badRequest(res, "History ID is required.");
   }
 
   try {
+    const history = await historyService.getHistoryById(historyId);
+
+    if (history.userId !== userId) {
+      return apiResponse.forbidden(res, "Access denied.");
+    }
+
+    if (history.status !== "completed") {
+      return apiResponse.badRequest(
+        res,
+        "Generation is not completed yet.",
+      );
+    }
+
+    if (!history.resultUrl) {
+      return apiResponse.badRequest(res, "No result available.");
+    }
+
     const result = await gptService.processFinalImage(
       publish,
       userId,
-      imageUrl,
-      prompt,
+      history.resultUrl,
+      history.prompt || "",
     );
+
     const message = publish
       ? "Image published successfully."
-      : "Image saved to your private gallery.";
+      : "Image saved to your gallery.";
     apiResponse.success(res, result, message, 201);
   } catch (error) {
     logger.error(`Error processing GPT image: ${error.message}`);

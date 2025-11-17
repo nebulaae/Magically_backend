@@ -4,6 +4,7 @@ import multer from "multer";
 import { Request } from "express";
 
 // Define the destinations for directories
+export const gptDir = path.join(__dirname, "../../public/ai/gpt");
 export const falDir = path.join(__dirname, "../../public/ai/fal");
 export const klingDir = path.join(__dirname, "../../public/ai/kling");
 export const nanoDir = path.join(__dirname, "../../public/ai/nano");
@@ -15,6 +16,7 @@ export const replicateDir = path.join(__dirname, "../../public/ai/replicate");
 
 // Ensure directories exist
 [
+  gptDir,
   falDir,
   nanoDir,
   klingDir,
@@ -197,3 +199,19 @@ export const uploadNanoImages = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
   fileFilter: fileFilter,
 }).single("nanoImage");
+
+export const uploadGptImages = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, gptDir);
+    },
+    filename: (req: Request, file, cb) => {
+      const userId = req.user.id;
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const extension = path.extname(file.originalname);
+      cb(null, `gpt-${userId}-${uniqueSuffix}${extension}`);
+    },
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
+  fileFilter: fileFilter,
+}).single("gptImages");

@@ -9,23 +9,20 @@ import * as klingRepository from "../repository/klingRepository";
 
 dotenv.config();
 
-const KLING_API_URL = "https://api.unifically.com/kling/v1/videos";
+const KLING_API_URL = "https://api.unifically.com/kling-v2-5-turbo";
 const KLING_API_KEY = process.env.KLING_API;
 const httpAgent = new http.Agent({ keepAlive: true });
 
 interface KlingGenerationPayload {
-  model: string;
-  image_url: string;
   prompt: string;
   duration: number;
-  aspect_ratio: string;
-  negative_prompt?: string;
-  effect?: string;
+  mode: "std" | "pro";
+  image_url?: string;
 }
 
 export const generateKlingVideo = async (payload: KlingGenerationPayload) => {
   try {
-    const response = await axios.post(`${KLING_API_URL}/generations`, payload, {
+    const response = await axios.post(`${KLING_API_URL}/generate`, payload, {
       headers: {
         Authorization: `Bearer ${KLING_API_KEY}`,
         "Content-Type": "application/json",
@@ -33,35 +30,29 @@ export const generateKlingVideo = async (payload: KlingGenerationPayload) => {
       httpAgent,
     });
 
-    console.log(response.data)
-
     return response.data;
   } catch (error) {
-    // [FIX] Добавлен JSON.stringify для подробного логирования ошибок API
-    const errorMessage = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-    logger.error(
-      `Error generating Kling video: ${errorMessage}`,
-    );
+    const errorMessage = error.response?.data
+      ? JSON.stringify(error.response.data)
+      : error.message;
+    logger.error(`Error generating Kling video: ${errorMessage}`);
     throw new Error("Failed to start Kling video generation.");
-  };
+  }
 };
 
 export const getKlingVideoStatus = async (taskId: string) => {
   try {
-    // Don't throw on non-2xx so we can inspect API error bodies (curl shows 400 with useful JSON).
-    const response = await axios.get(`${KLING_API_URL}/generations/${taskId}`, {
+    const response = await axios.get(`${KLING_API_URL}/status/${taskId}`, {
       headers: { Authorization: `Bearer ${KLING_API_KEY}` },
       httpAgent,
       validateStatus: () => true,
     });
     return response.data;
   } catch (error: any) {
-    // Network / unexpected errors
     logger.error(
       `Error getting Kling video status for task ${taskId}: ${error.response?.data || error.message}`,
     );
     if (error.response && error.response.data) {
-      // Return API body when present so caller can react to failed tasks
       return error.response.data;
     }
     throw new Error("Failed to get Kling video generation status.");

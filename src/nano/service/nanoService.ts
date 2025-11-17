@@ -9,26 +9,25 @@ import * as nanoRepository from "../repository/nanoRepository";
 
 dotenv.config();
 
-const NANO_API_URL = "https://api.unifically.com/nano-banana/generate";
-const NANO_STATUS_URL = "https://api.unifically.com/nano-banana/status";
+const NANO_API_URL = "https://api.unifically.com/nano-banana";
 const API_KEY = process.env.NANO_API_KEY;
 const httpAgent = new http.Agent({ keepAlive: true });
 
 interface NanoGenerationPayload {
     prompt: string;
-    aspect_ratio?: string;
+    aspect_ratio: string;
     image_urls?: string[];
 }
 
 export const generateNanoImage = async (payload: NanoGenerationPayload) => {
     try {
-        const response = await axios.post(NANO_API_URL, payload, {
+        const response = await axios.post(`${NANO_API_URL}/generate`, payload, {
             headers: {
                 Authorization: `Bearer ${API_KEY}`,
                 "Content-Type": "application/json",
             },
             httpAgent,
-            timeout: 1200000,
+            timeout: 120000,
         });
 
         return response.data;
@@ -42,7 +41,7 @@ export const generateNanoImage = async (payload: NanoGenerationPayload) => {
 
 export const getNanoImageStatus = async (taskId: string) => {
     try {
-        const statusUrl = `${NANO_STATUS_URL}/${taskId}`;
+        const statusUrl = `${NANO_API_URL}/status/${taskId}`;
         const response = await axios.get(statusUrl, {
             headers: { Authorization: `Bearer ${API_KEY}` },
             httpAgent,
@@ -91,7 +90,6 @@ export const processFinalImage = async (
     imageUrl: string,
     prompt: string,
 ) => {
-    // This function is now called by GenerationJobsService
     const localImagePath = await downloadImage(imageUrl);
     if (publish) {
         return nanoRepository.createPublication({
