@@ -1,5 +1,7 @@
 import express from "express";
+
 import * as userController from "./controller/userController";
+import * as recommendationController from "./controller/recommendationController";
 
 import { auth } from "../../shared/middleware/auth";
 import { asyncHandler } from "../../shared/utils/asyncHandler";
@@ -63,6 +65,13 @@ router.delete(
   "/:userId/unsubscribe",
   auth,
   asyncHandler(userController.unsubscribe),
+);
+
+// Recommendations 
+router.get(
+  "/users/recommendations",
+  auth,
+  asyncHandler(recommendationController.getRecommendedUsers)
 );
 
 // Change role to an admin
