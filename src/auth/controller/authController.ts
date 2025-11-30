@@ -43,11 +43,13 @@ export const registerStep3 = async (req: Request, res: Response) => {
       username,
       password,
     );
+    
     res.cookie("token", result.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
+
     apiResponse.success(res, result, "Registration successful.", 201);
   } catch (error) {
     logger.error(`Register step 3 error: ${error.message}`);

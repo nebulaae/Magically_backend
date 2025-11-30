@@ -5,6 +5,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import logger from "../../../shared/utils/logger";
 import { v4 as uuidv4 } from "uuid";
+import { Transaction } from "sequelize";
 import * as higgsfieldRepository from "../repository/higgsfieldRepository";
 
 dotenv.config();
@@ -34,7 +35,6 @@ export const generateVideo = async (payload: {
         httpAgent,
       }
     );
-
     return response.data;
   } catch (error: any) {
     const message =
@@ -111,7 +111,8 @@ export const processFinalVideo = async (
   publish: boolean,
   userId: string,
   videoUrl: string,
-  prompt: string
+  prompt: string,
+  t: Transaction
 ) => {
   const localPath = await downloadVideo(videoUrl);
   if (publish) {
@@ -120,13 +121,13 @@ export const processFinalVideo = async (
       content: prompt || "Generated Video via Higgsfield",
       videoUrl: localPath,
       category: "higgsfield",
-    });
+    }, t);
   } else {
     return higgsfieldRepository.createGalleryItem({
       userId,
       prompt: prompt || "Generated Video via Higgsfield",
       imageUrl: localPath,
       generationType: "video-higgsfield",
-    });
+    }, t);
   }
 };

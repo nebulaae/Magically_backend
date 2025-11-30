@@ -14,6 +14,5 @@ router.post(
   asyncHandler(nanoController.generateImage),
 );
 
-router.post("/process-image", auth, asyncHandler(nanoController.processImage));
 
 export default router;

@@ -5,145 +5,78 @@ import { Request, Response } from "express";
 import { deductTokensForGeneration } from "../../../shared/utils/userActions";
 import * as nanoService from "../service/nanoService";
 import * as apiResponse from "../../../shared/utils/apiResponse";
-import * as historyService from "../../history/service/historyService";
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const generateImage = async (req: Request, res: Response) => {
-    const { prompt, aspect_ratio = "1:1" } = req.body;
-    const files = req.files as Express.Multer.File[];
-    const userId = req.user.id;
+    req.setTimeout(900000); // 15 min timeout
 
-    if (!prompt) {
-        return apiResponse.badRequest(res, "Prompt is required.");
-    }
+    const { prompt, aspect_ratio, publish } = req.body;
+    const file = req.file; // Используем single upload (как в gpt) или array если нужно
+    const userId = req.user.id;
+    const isPublish = publish === 'true' || publish === true;
+
+    if (!prompt) return apiResponse.badRequest(res, "Prompt is required.");
 
     const t = await db.transaction();
+
     try {
         await deductTokensForGeneration(userId, "image", t);
 
-        const payload: {
-            prompt: string;
-            aspect_ratio: string;
-            image_urls?: string[];
-        } = { prompt, aspect_ratio };
+        const payload: any = { prompt, aspect_ratio: aspect_ratio || "1:1" };
 
-        if (files && files.length > 0) {
-            payload.image_urls = files.map(
-                (file) => `${process.env.BACKEND_URL}/ai/nano/${file.filename}`,
-            );
+        // Если есть файл, формируем URL нашего сервера
+        if (file) {
+            const serverImageUrl = `${process.env.BACKEND_URL}/ai/nano/${file.filename}`;
+            payload.image_urls = [serverImageUrl];
+        } else if (req.body.image_urls) {
+            // Fallback если юзер шлет ссылки (редко)
+            payload.image_urls = req.body.image_urls;
         }
 
         const nanoResponse = await nanoService.generateNanoImage(payload);
         const taskId = nanoResponse?.data?.task_id;
 
-        if (!taskId) {
-            throw new Error("Failed to get a task ID from Nano API.");
-        }
+        if (!taskId) throw new Error("Failed to get task ID from Nano");
 
-        const history = await historyService.createGenerationHistory({
-            userId,
-            service: "nano",
-            serviceTaskId: taskId,
-            tokensSpent: 15,
-            prompt,
-            metadata: { aspect_ratio, image_urls: payload.image_urls },
-        });
+        let finalImageUrl: string | null = null;
 
-        await t.commit();
-
-        // Background polling
-        pollNanoStatus(taskId, history.id).catch((err) =>
-            logger.error(`Background polling error: ${err.message}`),
-        );
-
-        apiResponse.success(
-            res,
-            { historyId: history.id, taskId },
-            "Image generation started.",
-            202,
-        );
-    } catch (error) {
-        await t.rollback();
-        logger.error(`Nano image generation error: ${error.message}`);
-        apiResponse.internalError(res, error.message);
-    } finally {
-        files?.forEach((file) => {
-            if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        });
-    }
-};
-
-const pollNanoStatus = async (taskId: string, historyId: string) => {
-    const sleep = (ms: number) =>
-        new Promise((resolve) => setTimeout(resolve, ms));
-
-    for (let attempts = 0; attempts < 60; attempts++) {
-        await sleep(5000);
-        try {
+        // Поллинг
+        for (let attempts = 0; attempts < 120; attempts++) {
+            await sleep(2000);
             const statusResponse = await nanoService.getNanoImageStatus(taskId);
             const status = statusResponse?.data?.status;
 
             if (status === "completed") {
-                const imageUrl = statusResponse?.data?.output?.image_url;
-                await historyService.updateHistoryStatus(historyId, "completed", {
-                    resultUrl: imageUrl,
-                });
-                logger.info(`Nano generation ${taskId} completed.`);
-                return;
+                finalImageUrl = statusResponse?.data?.output?.image_url;
+                break;
             } else if (status === "failed") {
-                const errMsg =
-                    statusResponse?.data?.error?.message || "Generation failed.";
-                await historyService.updateHistoryStatus(historyId, "failed", {
-                    errorMessage: errMsg,
-                });
-                logger.error(`Nano generation ${taskId} failed: ${errMsg}`);
-                return;
+                throw new Error(statusResponse?.data?.error?.message || "Nano generation failed");
             }
-        } catch (pollError: any) {
-            logger.warn(`Polling attempt ${attempts + 1} failed: ${pollError.message}`);
-        }
-    }
-
-    await historyService.updateHistoryStatus(historyId, "failed", {
-        errorMessage: "Generation timed out.",
-    });
-};
-
-export const processImage = async (req: Request, res: Response) => {
-    const { publish, historyId } = req.body;
-    const userId = req.user.id;
-
-    if (!historyId) {
-        return apiResponse.badRequest(res, "History ID is required.");
-    }
-
-    try {
-        const history = await historyService.getHistoryById(historyId);
-
-        if (history.userId !== userId) {
-            return apiResponse.forbidden(res, "Access denied.");
         }
 
-        if (history.status !== "completed") {
-            return apiResponse.badRequest(res, "Generation is not completed yet.");
-        }
+        if (!finalImageUrl) throw new Error("Generation timed out");
 
-        if (!history.resultUrl) {
-            return apiResponse.badRequest(res, "No result available.");
-        }
-
-        const result = await nanoService.processFinalImage(
-            publish,
+        // Скачивание и сохранение
+        const resultItem = await nanoService.processFinalImage(
+            isPublish,
             userId,
-            history.resultUrl,
-            history.prompt || "",
+            finalImageUrl,
+            prompt,
+            t
         );
 
-        const message = publish
-            ? "Image published successfully."
-            : "Image saved to your gallery.";
-        apiResponse.success(res, result, message, 201);
+        await t.commit();
+        apiResponse.success(res, resultItem, "Generated successfully");
+
     } catch (error) {
-        logger.error(`Error processing Nano image: ${error.message}`);
-        apiResponse.internalError(res, "Failed to process image.");
+        await t.rollback();
+        logger.error(`Nano Error: ${error.message}`);
+        apiResponse.internalError(res, error.message);
+    } finally {
+        // Удаляем загруженный файл референса, если он больше не нужен (или оставляем, если это референс)
+        // Обычно референсы лучше оставить, пока генерация идет, но после - можно удалить, если не используем в галерее.
+        // Здесь оставим логику удаления, если это временный файл
+        // if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
     }
 };

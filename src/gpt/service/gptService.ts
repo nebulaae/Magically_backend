@@ -4,38 +4,35 @@ import path from "path";
 import axios from "axios";
 import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
+import { Transaction } from "sequelize";
 import { logger } from "../../../shared/utils/logger";
 import * as gptRepository from "../repository/gptRepository";
 
-dotenv.config();
+dotenv.config()
 
-const GPT_API_URL = "https://api.unifically.com/gpt-image-1";
+const GPT_API_URL = "https://api.unifically.com/gpt-image-1/generate";
 const API_KEY = process.env.GPT_API;
 const httpAgent = new http.Agent({ keepAlive: true });
 
-export const generateGptImage = async (
-  prompt: string,
-  imageUrls?: string[],
-) => {
+export const generateGptImage = async (prompt: string) => {
   try {
-    const payload: any = { prompt };
-    if (imageUrls && imageUrls.length > 0) {
-      payload.image_urls = imageUrls;
-    }
-
-    const response = await axios.post(`${GPT_API_URL}/generate`, payload, {
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      httpAgent,
-      timeout: 120000,
-    });
+    const response = await axios.post(
+      GPT_API_URL,
+      { prompt },
+      {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        httpAgent,
+        timeout: 1200000,
+      }
+    );
 
     return response.data;
   } catch (error) {
     logger.error(
-      `Error generating GPT image: ${JSON.stringify(error.response?.data || error.message)}`,
+      `Error generating GPT image: ${JSON.stringify(error.response?.data || error.message)}, API_KEY: ${API_KEY}`
     );
     throw new Error("Failed to generate image with GPT.");
   }
@@ -43,7 +40,7 @@ export const generateGptImage = async (
 
 export const getGptImageStatus = async (taskId: string) => {
   try {
-    const statusUrl = `${GPT_API_URL}/status/${taskId}`;
+    const statusUrl = `https://api.unifically.com/gpt-image-1/status/${taskId}`;
     const response = await axios.get(statusUrl, {
       headers: { Authorization: `Bearer ${API_KEY}` },
       httpAgent,
@@ -59,8 +56,14 @@ export const getGptImageStatus = async (taskId: string) => {
   }
 };
 
-const downloadImage = async (imageUrl: string): Promise<string> => {
-  const imageDir = path.join(__dirname, `../../../public/images/gpt`);
+const downloadImage = async (
+  imageUrl: string,
+  destinationDir: "gpt" | "fal",
+): Promise<string> => {
+  const imageDir = path.join(
+    __dirname,
+    `../../../public/images/${destinationDir}`,
+  );
   if (!fs.existsSync(imageDir)) {
     fs.mkdirSync(imageDir, { recursive: true });
   }
@@ -77,13 +80,24 @@ const downloadImage = async (imageUrl: string): Promise<string> => {
     response.data.pipe(writer);
 
     return new Promise((resolve, reject) => {
-      writer.on("finish", () => resolve(`/images/gpt/${filename}`));
+      writer.on("finish", () =>
+        resolve(`/images/${destinationDir}/${filename}`),
+      );
       writer.on("error", reject);
     });
   } catch (error) {
-    logger.error(`Error downloading image to gpt: ${error.message}`);
+    logger.error(
+      `Error downloading image to ${destinationDir}: ${error.message}`,
+    );
     throw new Error("Failed to download generated image.");
   }
+};
+
+export const extractImageUrl = (text: string): string | null => {
+  if (!text) return null;
+  const regex = /https:\/\/[^\s)]+/;
+  const match = text.match(regex);
+  return match ? match[0] : null;
 };
 
 export const processFinalImage = async (
@@ -91,21 +105,23 @@ export const processFinalImage = async (
   userId: string,
   imageUrl: string,
   prompt: string,
+  t: Transaction
 ) => {
-  const localImagePath = await downloadImage(imageUrl);
+  const localImagePath = await downloadImage(imageUrl, "gpt");
+
   if (publish) {
     return gptRepository.createPublication({
       userId,
       content: prompt || "Generated Image via GPT-4o",
       imageUrl: localImagePath,
       category: "gpt",
-    });
+    }, t);
   } else {
     return gptRepository.createGalleryItem({
       userId,
       prompt: prompt || "Generated Image via GPT-4o",
       imageUrl: localImagePath,
       generationType: "image-gpt",
-    });
+    }, t);
   }
 };

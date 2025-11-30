@@ -4,30 +4,32 @@ import path from "path";
 import axios from "axios";
 import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
+import { Transaction } from "sequelize";
 import { logger } from "../../../shared/utils/logger";
 import * as nanoRepository from "../repository/nanoRepository";
 
 dotenv.config();
 
-const NANO_API_URL = "https://api.unifically.com/nano-banana";
+const NANO_API_URL = "https://api.unifically.com/nano-banana/generate";
+const NANO_STATUS_URL = "https://api.unifically.com/nano-banana/status";
 const API_KEY = process.env.NANO_API_KEY;
 const httpAgent = new http.Agent({ keepAlive: true });
 
 interface NanoGenerationPayload {
     prompt: string;
-    aspect_ratio: string;
+    aspect_ratio?: string;
     image_urls?: string[];
 }
 
 export const generateNanoImage = async (payload: NanoGenerationPayload) => {
     try {
-        const response = await axios.post(`${NANO_API_URL}/generate`, payload, {
+        const response = await axios.post(NANO_API_URL, payload, {
             headers: {
                 Authorization: `Bearer ${API_KEY}`,
                 "Content-Type": "application/json",
             },
             httpAgent,
-            timeout: 120000,
+            timeout: 1200000,
         });
 
         return response.data;
@@ -41,7 +43,7 @@ export const generateNanoImage = async (payload: NanoGenerationPayload) => {
 
 export const getNanoImageStatus = async (taskId: string) => {
     try {
-        const statusUrl = `${NANO_API_URL}/status/${taskId}`;
+        const statusUrl = `${NANO_STATUS_URL}/${taskId}`;
         const response = await axios.get(statusUrl, {
             headers: { Authorization: `Bearer ${API_KEY}` },
             httpAgent,
@@ -89,6 +91,7 @@ export const processFinalImage = async (
     userId: string,
     imageUrl: string,
     prompt: string,
+    t: Transaction
 ) => {
     const localImagePath = await downloadImage(imageUrl);
     if (publish) {
@@ -97,13 +100,13 @@ export const processFinalImage = async (
             content: prompt || "Generated Image via Nano",
             imageUrl: localImagePath,
             category: "nano",
-        });
+        },t );
     } else {
         return nanoRepository.createGalleryItem({
             userId,
             prompt: prompt || "Generated Image via Nano",
             imageUrl: localImagePath,
             generationType: "image-nano",
-        });
+        }, t);
     }
 };

@@ -5,24 +5,28 @@ import axios from "axios";
 import dotenv from "dotenv";
 import logger from "../../../shared/utils/logger";
 import { v4 as uuidv4 } from "uuid";
+import { Transaction } from "sequelize";
 import * as klingRepository from "../repository/klingRepository";
 
 dotenv.config();
 
-const KLING_API_URL = "https://api.unifically.com/kling-v2-5-turbo";
+const KLING_API_URL = "https://api.unifically.com/kling/v1/videos";
 const KLING_API_KEY = process.env.KLING_API;
 const httpAgent = new http.Agent({ keepAlive: true });
 
 interface KlingGenerationPayload {
+  model: string;
+  image_url: string;
   prompt: string;
   duration: number;
-  mode: "std" | "pro";
-  image_url?: string;
+  aspect_ratio: string;
+  negative_prompt?: string;
+  effect?: string;
 }
 
 export const generateKlingVideo = async (payload: KlingGenerationPayload) => {
   try {
-    const response = await axios.post(`${KLING_API_URL}/generate`, payload, {
+    const response = await axios.post(`${KLING_API_URL}/generations`, payload, {
       headers: {
         Authorization: `Bearer ${KLING_API_KEY}`,
         "Content-Type": "application/json",
@@ -30,19 +34,21 @@ export const generateKlingVideo = async (payload: KlingGenerationPayload) => {
       httpAgent,
     });
 
+    console.log(response.data)
+
     return response.data;
   } catch (error) {
-    const errorMessage = error.response?.data
-      ? JSON.stringify(error.response.data)
-      : error.message;
-    logger.error(`Error generating Kling video: ${errorMessage}`);
+    const errorMessage = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+    logger.error(
+      `Error generating Kling video: ${errorMessage}`,
+    );
     throw new Error("Failed to start Kling video generation.");
-  }
+  };
 };
 
 export const getKlingVideoStatus = async (taskId: string) => {
   try {
-    const response = await axios.get(`${KLING_API_URL}/status/${taskId}`, {
+    const response = await axios.get(`${KLING_API_URL}/generations/${taskId}`, {
       headers: { Authorization: `Bearer ${KLING_API_KEY}` },
       httpAgent,
       validateStatus: () => true,
@@ -89,6 +95,7 @@ export const processFinalVideo = async (
   userId: string,
   videoUrl: string,
   prompt: string,
+  t: Transaction
 ) => {
   const downloadedVideoPath = await downloadKlingVideo(videoUrl);
   if (publish) {
@@ -97,13 +104,13 @@ export const processFinalVideo = async (
       content: prompt || "Generated Video",
       videoUrl: downloadedVideoPath,
       category: "kling",
-    });
+    }, t);
   } else {
     return klingRepository.createGalleryItem({
       userId,
       prompt: prompt || "Generated Video",
       imageUrl: downloadedVideoPath,
       generationType: "video-kling",
-    });
+    }, t);
   }
 };

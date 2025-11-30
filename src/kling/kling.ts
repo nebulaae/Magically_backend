@@ -15,7 +15,5 @@ router.post(
   asyncHandler(klingController.generateVideo),
 );
 
-// Process the generated video
-router.post("/process-video", auth, asyncHandler(klingController.processVideo));
 
 export default router;

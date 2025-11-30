@@ -18,4 +18,21 @@ router.post(
 // Generate an image from a trained model
 router.post("/generate", auth, asyncHandler(replicateController.generateImage));
 
+// Get training status
+router.get(
+  "/training/:trainingId",
+  auth,
+  asyncHandler(replicateController.getTrainingStatus),
+);
+
+// Get user's trained models
+router.get("/models", auth, asyncHandler(replicateController.getUserModels));
+
+// Delete a model from user's list
+router.delete(
+  "/models/:modelId",
+  auth,
+  asyncHandler(replicateController.deleteModel),
+);
+
 export default router;
