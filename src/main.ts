@@ -12,6 +12,7 @@ import promBundle from "express-prom-bundle";
 import { pinoHttp } from "pino-http";
 import { Server as SocketIOServer } from "socket.io";
 import { startJobPoller } from "../shared/workers/jobPoller";
+import { seedTestData } from "../shared/scripts/seedTestData";
 import { setupAssociations } from "../shared/models/associations";
 import { initializeSocketIO } from "../shared/utils/socketManager";
 
@@ -81,6 +82,9 @@ const startServer = async () => {
     // Initialize socket
     initializeSocketIO(io);
     logger.info("Socket initialized");
+
+    // Seed
+    await seedTestData();
 
     server.listen(PORT, () => {
       logger.info(`Server successfully started and running on port ${PORT}`);

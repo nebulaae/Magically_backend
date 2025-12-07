@@ -6,7 +6,7 @@ import logger from "../../../shared/utils/logger";
 export const getPublicationById = async (req: Request, res: Response) => {
   try {
     const { publicationId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user?.id || null;
     const publication = await publicationService.getPublicationById(
       publicationId,
       userId,
@@ -23,7 +23,7 @@ export const getPublicationById = async (req: Request, res: Response) => {
 
 export const getAllPublications = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id || null;
     const {
       page = "1",
       limit = "10",

@@ -1,10 +1,14 @@
 {
   "compilerOptions": {
-    "types": ["node", "express", "multer"],
+    "types": [
+      "node",
+      "express"
+    ],
     "target": "es2017",
     "module": "commonjs",
     "sourceMap": true,
     "outDir": "dist",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true
   }
 }

@@ -3,48 +3,49 @@ import * as commentController from "./controller/commentController";
 
 import { auth } from "../../shared/middleware/auth";
 import { asyncHandler } from "../../shared/utils/asyncHandler";
+import { optionalAuth } from "../../shared/middleware/optionalAuth";
 
 const router = express.Router();
 
-// Create a comment
+// Create a comment - REQUIRES AUTH
 router.post(
   "/:publicationId/comments",
   auth,
   asyncHandler(commentController.createComment),
 );
 
-// Get all comments for a publication (can be used for a separate comments page/section)
+// Get all comments for a publication - PUBLIC with optional auth
 router.get(
   "/:publicationId/comments",
-  auth,
+  optionalAuth,
   asyncHandler(commentController.getCommentsForPublication),
 );
 
-// Reply to an existing comment
+// Reply to an existing comment - REQUIRES AUTH
 router.post(
   "/:commentId/reply",
   auth,
   asyncHandler(commentController.replyToComment),
 );
 
-// Update a comment
+// Update a comment - REQUIRES AUTH
 router.put("/:commentId", auth, asyncHandler(commentController.updateComment));
 
-// Delete a comment
+// Delete a comment - REQUIRES AUTH
 router.delete(
   "/:commentId",
   auth,
   asyncHandler(commentController.deleteComment),
 );
 
-// Like a comment
+// Like a comment - REQUIRES AUTH
 router.post(
   "/:commentId/like",
   auth,
   asyncHandler(commentController.likeComment),
 );
 
-// Unlike a comment
+// Unlike a comment - REQUIRES AUTH
 router.delete(
   "/:commentId/unlike",
   auth,
