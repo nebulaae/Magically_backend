@@ -19,7 +19,7 @@ module.exports = {
         onDelete: 'CASCADE',
       },
       service: {
-        type: Sequelize.ENUM('kling', 'higgsfield', 'gpt', 'fal', 'replicate'),
+        type: Sequelize.ENUM("kling", "higgsfield", "gpt", "nano", "nano-pro", "gpt-1.5"),
         allowNull: false,
       },
       serviceTaskId: {
@@ -28,7 +28,7 @@ module.exports = {
         unique: true,
       },
       status: {
-        type: Sequelize.ENUM('pending', 'completed', 'failed'),
+        type: Sequelize.ENUM("pending", "processing", "completed", "failed"),
         allowNull: false,
         defaultValue: 'pending',
       },
@@ -36,9 +36,10 @@ module.exports = {
         type: Sequelize.STRING,
         allowNull: true,
       },
-      prompt: {
-        type: Sequelize.TEXT,
-        allowNull: true,
+      meta: {
+        type: Sequelize.JSONB,
+        allowNull: false,
+        defaultValue: {},
       },
       errorMessage: {
         type: Sequelize.TEXT,

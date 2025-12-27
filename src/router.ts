@@ -7,12 +7,13 @@ import authRoutes from "./auth/auth";
 import userRoutes from "./user/user";
 import adminRoutes from "./admin/admin";
 import klingRoutes from "./kling/kling";
+import jobRoutes from "./publication/job";
 import searchRoutes from "./search/search";
 import galleryRoutes from "./gallery/gallery";
 import commentRoutes from "./comment/comment";
-import replicateRoutes from "./replicate/replicate";
 import higgsfieldRoutes from "./higgsfield/higgsfield";
 import publicationRoutes from "./publication/publication";
+import transactionRoutes from "./transaction/transaction";
 
 import { swaggerDefinition } from "./swagger";
 
@@ -27,6 +28,7 @@ router.get("/health", (req, res) => {
 router.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDefinition));
 
 // Functional Routes
+router.use("/job", jobRoutes);
 router.use("/gpt", gptRoutes);
 router.use("/nano", nanoRoutes);
 router.use("/auth", authRoutes);
@@ -36,8 +38,8 @@ router.use("/kling", klingRoutes);
 router.use("/search", searchRoutes);
 router.use("/gallery", galleryRoutes);
 router.use("/comments", commentRoutes);
-router.use("/replicate", replicateRoutes);
 router.use("/higgsfield", higgsfieldRoutes);
+router.use("/transaction", transactionRoutes);
 router.use("/publications", publicationRoutes);
 
 export default router;

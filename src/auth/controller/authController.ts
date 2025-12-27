@@ -34,23 +34,25 @@ export const registerStep2 = async (req: Request, res: Response) => {
 export const registerStep3 = async (req: Request, res: Response) => {
   try {
     const { email, fullname, username, password } = req.body;
+
     if (!email || !fullname || !username || !password) {
       return apiResponse.badRequest(res, "All fields are required.");
-    }
+    };
+
     const result = await authService.registerStep3(
       email,
       fullname,
       username,
       password,
     );
-    
+
     res.cookie("token", result.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
 
-    apiResponse.success(res, result, "Registration successful.", 201);
+    apiResponse.success(res, result, "Registration successful. Logged in.", 200);
   } catch (error) {
     logger.error(`Register step 3 error: ${error.message}`);
     apiResponse.badRequest(res, error.message);

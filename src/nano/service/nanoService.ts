@@ -10,52 +10,36 @@ import * as nanoRepository from "../repository/nanoRepository";
 
 dotenv.config();
 
-const NANO_API_URL = "https://api.unifically.com/nano-banana/generate";
-const NANO_STATUS_URL = "https://api.unifically.com/nano-banana/status";
+const NANO_BASE = "https://api.unifically.com/nano-banana";
+const NANO_PRO_BASE = "https://api.unifically.com/nano-banana-pro";
 const API_KEY = process.env.NANO_API_KEY;
-const httpAgent = new http.Agent({ keepAlive: true });
 
-interface NanoGenerationPayload {
-    prompt: string;
-    aspect_ratio?: string;
-    image_urls?: string[];
-}
-
-export const generateNanoImage = async (payload: NanoGenerationPayload) => {
+export const generateNanoImage = async (payload: any, isPro: boolean = false) => {
+    const url = isPro ? `${NANO_PRO_BASE}/generate` : `${NANO_BASE}/generate`;
     try {
-        const response = await axios.post(NANO_API_URL, payload, {
+        const response = await axios.post(url, payload, {
             headers: {
                 Authorization: `Bearer ${API_KEY}`,
                 "Content-Type": "application/json",
             },
-            httpAgent,
-            timeout: 1200000,
+            timeout: 30000, // Короткий таймаут, так как мы только стартуем задачу
         });
-
         return response.data;
     } catch (error) {
-        logger.error(
-            `Error generating Nano image: ${JSON.stringify(error.response?.data || error.message)}`,
-        );
-        throw new Error("Failed to generate image with Nano Banana.");
+        logger.error(`Nano API Error: ${error.message}`);
+        throw new Error("Failed to start Nano generation.");
     }
 };
 
-export const getNanoImageStatus = async (taskId: string) => {
+export const getNanoImageStatus = async (taskId: string, isPro: boolean = false) => {
+    const url = isPro ? `${NANO_PRO_BASE}/status/${taskId}` : `${NANO_BASE}/status/${taskId}`;
     try {
-        const statusUrl = `${NANO_STATUS_URL}/${taskId}`;
-        const response = await axios.get(statusUrl, {
-            headers: { Authorization: `Bearer ${API_KEY}` },
-            httpAgent,
-            validateStatus: () => true,
+        const response = await axios.get(url, {
+            headers: { Authorization: `Bearer ${API_KEY}` }
         });
         return response.data;
-    } catch (error: any) {
-        logger.error(
-            `Error getting Nano image status for task ${taskId}: ${error.response?.data || error.message}`,
-        );
-        if (error.response && error.response.data) return error.response.data;
-        throw new Error("Failed to get Nano image generation status.");
+    } catch (error) {
+        return null;
     }
 };
 
@@ -100,7 +84,7 @@ export const processFinalImage = async (
             content: prompt || "Generated Image via Nano",
             imageUrl: localImagePath,
             category: "nano",
-        },t );
+        }, t);
     } else {
         return nanoRepository.createGalleryItem({
             userId,

@@ -84,7 +84,7 @@ const startServer = async () => {
     logger.info("Socket initialized");
 
     // Seed
-    await seedTestData();
+    // await seedTestData();
 
     server.listen(PORT, () => {
       logger.info(`Server successfully started and running on port ${PORT}`);

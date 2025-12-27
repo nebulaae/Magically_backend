@@ -65,3 +65,23 @@ export const setPhotoOfTheDay = async (req: Request, res: Response) => {
     apiResponse.internalError(res, "Error while setting Photo of the Day.");
   }
 };
+
+export const giveTokens = async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const { amount, reason } = req.body;
+  if (!amount || !reason) return apiResponse.badRequest(res, "Amount and reason are required");
+  
+  await adminService.addTokensToUser(req.user.id, userId, Number(amount), reason);
+  apiResponse.success(res, null, "Tokens added successfully");
+};
+
+export const deleteUserComment = async (req: Request, res: Response) => {
+  const { commentId } = req.params;
+  await adminService.deleteComment(commentId);
+  apiResponse.success(res, null, "Comment deleted by admin");
+};
+
+export const getAnalytics = async (req: Request, res: Response) => {
+  const data = await adminService.getFullAnalytics();
+  apiResponse.success(res, data);
+};

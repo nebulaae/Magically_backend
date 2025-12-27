@@ -23,5 +23,8 @@ router.put(
   "/publications/:publicationId/photo-of-the-day",
   asyncHandler(adminController.setPhotoOfTheDay),
 );
+router.post("/users/:userId/tokens", asyncHandler(adminController.giveTokens));
+router.delete("/comments/:commentId", asyncHandler(adminController.deleteUserComment));
+router.get("/analytics", asyncHandler(adminController.getAnalytics));
 
 export default router;

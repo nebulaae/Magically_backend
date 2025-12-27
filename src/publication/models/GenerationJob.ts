@@ -4,73 +4,48 @@ import { Model, DataTypes } from "sequelize";
 export interface GenerationJobAttributes {
   id: string;
   userId: string;
-  service: "kling" | "higgsfield" | "gpt" | "fal" | "replicate";
+  service: "kling" | "higgsfield" | "gpt" | "nano" | "nano-pro" | "gpt-1.5";
   serviceTaskId: string;
-  status: "pending" | "completed" | "failed";
+  status: "pending" | "processing" | "completed" | "failed";
   resultUrl?: string;
-  prompt?: string;
   errorMessage?: string;
+  meta: {
+    prompt: string;
+    publish: boolean;
+    aspect_ratio?: string;
+    model_type?: string;
+    [key: string]: any;
+  };
 }
 
-export class GenerationJob
-  extends Model<GenerationJobAttributes>
-  implements GenerationJobAttributes
-{
+export class GenerationJob extends Model<GenerationJobAttributes> implements GenerationJobAttributes {
   public id!: string;
   public userId!: string;
-  public service!: "kling" | "higgsfield" | "gpt" | "fal" | "replicate";
+  public service!: "kling" | "higgsfield" | "gpt" | "nano" | "nano-pro" | "gpt-1.5";
   public serviceTaskId!: string;
-  public status!: "pending" | "completed" | "failed";
+  public status!: "pending" | "processing" | "completed" | "failed";
   public resultUrl?: string;
-  public prompt?: string;
   public errorMessage?: string;
+  public meta!: any;
 }
 
 GenerationJob.init(
   {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    userId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: "users",
-        key: "id",
-      },
-    },
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.UUID, allowNull: false, references: { model: "users", key: "id" } },
     service: {
-      type: DataTypes.ENUM("kling", "higgsfield", "gpt", "fal", "replicate"),
-      allowNull: false,
+      type: DataTypes.ENUM("kling", "higgsfield", "gpt", "nano", "nano-pro", "gpt-1.5"),
+      allowNull: false
     },
-    serviceTaskId: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-    },
+    serviceTaskId: { type: DataTypes.STRING, allowNull: false, unique: true },
     status: {
-      type: DataTypes.ENUM("pending", "completed", "failed"),
+      type: DataTypes.ENUM("pending", "processing", "completed", "failed"),
       allowNull: false,
-      defaultValue: "pending",
+      defaultValue: "pending"
     },
-    resultUrl: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    prompt: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    errorMessage: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
+    resultUrl: { type: DataTypes.STRING, allowNull: true },
+    errorMessage: { type: DataTypes.TEXT, allowNull: true },
+    meta: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
   },
-  {
-    sequelize: db,
-    modelName: "GenerationJob",
-    tableName: "generation_jobs",
-  },
+  { sequelize: db, modelName: "GenerationJob", tableName: "generation_jobs" }
 );

@@ -1,90 +1,155 @@
+import db from "../config/database";
 import logger from "../utils/logger";
+
 import { Server as SocketIOServer } from "socket.io";
 import { getUserSocketId } from "../utils/socketManager";
 import { GenerationJob } from "../../src/publication/models/GenerationJob";
-import { getKlingVideoStatus } from "../../src/kling/service/klingService";
-import { getVideoStatus as getHiggsfieldStatus } from "../../src/higgsfield/service/higgsfieldService";
 
-const POLLING_INTERVAL = 15000; // Poll every 15 seconds
+import {
+  getGptImageStatus,
+  processFinalImage as processGpt
+} from "../../src/gpt/service/gptService";
+import {
+  getNanoImageStatus,
+  processFinalImage as processNano
+} from "../../src/nano/service/nanoService";
+import {
+  getKlingVideoStatus,
+  processFinalVideo as processKling
+} from "../../src/kling/service/klingService";
+import {
+  getVideoStatus as getHiggsfieldStatus,
+  processFinalVideo as processHiggsfield
+} from "../../src/higgsfield/service/higgsfieldService";
+
+const POLLING_INTERVAL = 3000;
 
 export const startJobPoller = (io: SocketIOServer) => {
-  logger.info("Generation job poller worker started.");
-  setInterval(() => pollPendingJobs(io), POLLING_INTERVAL);
+  logger.info("Generation job poller started.");
+  setInterval(() => pollJobs(io), POLLING_INTERVAL);
 };
 
-const pollPendingJobs = async (io: SocketIOServer) => {
-  const pendingJobs = await GenerationJob.findAll({
-    where: { status: "pending" },
+const pollJobs = async (io: SocketIOServer) => {
+  // Берем задачи, которые НЕ завершены
+  const activeJobs = await GenerationJob.findAll({
+    where: { status: ["pending", "processing"] },
   });
 
-  if (pendingJobs.length === 0) {
-    return; // No jobs to process
-  }
+  if (activeJobs.length === 0) return;
 
-  logger.info(`Found ${pendingJobs.length} pending jobs to poll.`);
-
-  for (const job of pendingJobs) {
+  for (const job of activeJobs) {
     try {
       let isComplete = false;
       let isFailed = false;
-      let resultUrl: string | undefined;
+      let externalResultUrl: string | undefined;
       let errorMessage: string | undefined;
 
-      if (job.service === "kling") {
-        const status = await getKlingVideoStatus(job.serviceTaskId);
-        if (status.success && status.data.status === "completed") {
+      let statusData;
+
+      if (job.service.startsWith("gpt")) {
+        const res = await getGptImageStatus(job.serviceTaskId, job.service === "gpt-1.5");
+        statusData = res.data;
+        if (statusData?.status === "completed") {
           isComplete = true;
-          resultUrl = status.data.video_url;
-        } else if (!status.success || status.data.status === "failed") {
-          isFailed = true;
-          errorMessage = status.message || "Kling generation failed.";
-        }
-      } else if (job.service === "higgsfield") {
-        const status = await getHiggsfieldStatus(job.serviceTaskId);
-        if (status.jobs && status.jobs[0]) {
-          const higgsJob = status.jobs[0];
-          if (higgsJob.status === "completed") {
-            isComplete = true;
-            resultUrl = higgsJob.result.url;
-          } else if (higgsJob.status === "failed") {
-            isFailed = true;
-            errorMessage = "Higgsfield generation failed.";
-          }
+          externalResultUrl = statusData.url || statusData.output?.image_url || statusData.image_url;
         }
       }
-      // Add logic for other async services (GPT, Fal) here if needed.
+      else if (job.service.startsWith("nano")) {
+        const isPro = job.service === "nano-pro";
+        const res = await getNanoImageStatus(job.serviceTaskId, isPro);
+        statusData = res.data;
+        if (statusData?.status === "completed") {
+          isComplete = true;
+          externalResultUrl = statusData.output?.image_url || statusData.url;
+        }
+      }
+      else if (job.service === "kling") {
+        const res = await getKlingVideoStatus(job.serviceTaskId);
+        statusData = res.data;
+        if (statusData?.status === "completed") {
+          isComplete = true;
+          externalResultUrl = statusData.video_url || statusData.output?.video_url;
+        }
+      }
+      else if (job.service === "higgsfield") {
+        const res = await getHiggsfieldStatus(job.serviceTaskId);
+        const hJob = res.jobs?.[0] || res;
+        statusData = hJob;
+        if (hJob.status === "completed") {
+          isComplete = true;
+          externalResultUrl = hJob.result?.url;
+        } else if (hJob.status === "failed") {
+          isFailed = true;
+        }
+      }
+
+      if (statusData?.status === "failed" && !isFailed) {
+        isFailed = true;
+        errorMessage = statusData.error?.message || "Unknown error";
+      }
 
       const userSocketId = getUserSocketId(job.userId);
 
-      if (isComplete && resultUrl) {
-        logger.info(`Job ${job.id} completed for user ${job.userId}.`);
-        job.status = "completed";
-        job.resultUrl = resultUrl;
-        await job.save();
 
-        if (userSocketId) {
-          io.to(userSocketId).emit("jobCompleted", {
-            jobId: job.id,
-            resultUrl: job.resultUrl,
-            prompt: job.prompt,
-            service: job.service,
-          });
+      if (!isComplete && !isFailed && job.status === 'pending') {
+        job.status = 'processing';
+        await job.save();
+        if (userSocketId) io.to(userSocketId).emit("jobUpdate", { type: "processing", jobId: job.id });
+      }
+
+      if (isComplete && externalResultUrl) {
+        const t = await db.transaction();
+        try {
+          const freshJob = await GenerationJob.findByPk(job.id, { transaction: t, lock: true });
+
+          if (freshJob?.status === 'completed') {
+            await t.rollback();
+            continue;
+          }
+
+          const { publish, prompt } = job.meta;
+          let resultItem;
+
+          if (job.service.startsWith("gpt")) {
+            resultItem = await processGpt(publish, job.userId, externalResultUrl, prompt, t);
+          } else if (job.service.startsWith("nano")) {
+            resultItem = await processNano(publish, job.userId, externalResultUrl, prompt, t);
+          } else if (job.service === "kling") {
+            resultItem = await processKling(publish, job.userId, externalResultUrl, prompt, t);
+          } else if (job.service === "higgsfield") {
+            resultItem = await processHiggsfield(publish, job.userId, externalResultUrl, prompt, t);
+          }
+
+          job.status = "completed";
+          job.resultUrl = externalResultUrl;
+          await job.save({ transaction: t });
+
+          await t.commit();
+          logger.info(`Job ${job.id} completed.`);
+
+          if (userSocketId) {
+            io.to(userSocketId).emit("jobUpdate", {
+              type: "completed",
+              jobId: job.id,
+              result: resultItem
+            });
+          }
+
+        } catch (err) {
+          await t.rollback();
+          logger.error(`Error saving job ${job.id}: ${err.message}`);
         }
-      } else if (isFailed) {
-        logger.error(`Job ${job.id} failed for user ${job.userId}.`);
+      }
+
+      else if (isFailed) {
         job.status = "failed";
         job.errorMessage = errorMessage;
         await job.save();
-
-        if (userSocketId) {
-          io.to(userSocketId).emit("jobFailed", {
-            jobId: job.id,
-            error: job.errorMessage,
-          });
-        }
+        if (userSocketId) io.to(userSocketId).emit("jobUpdate", { type: "failed", jobId: job.id, error: errorMessage });
       }
-    } catch (error) {
-      logger.error(`Error polling job ${job.id}: ${error.message}`);
+
+    } catch (e) {
+      logger.error(`Poller loop error: ${e.message}`);
     }
   }
 };

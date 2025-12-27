@@ -10,50 +10,29 @@ import * as gptRepository from "../repository/gptRepository";
 
 dotenv.config()
 
-const GPT_API_URL = "https://api.unifically.com/gpt-image-1/generate";
 const API_KEY = process.env.GPT_API;
-const httpAgent = new http.Agent({ keepAlive: true });
 
-export const generateGptImage = async (prompt: string) => {
-  try {
-    const response = await axios.post(
-      GPT_API_URL,
-      { prompt },
-      {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        httpAgent,
-        timeout: 1200000,
-      }
-    );
+export const generateGptImage = async (data: any, isVersion1_5: boolean = false) => {
+  const endpoint = isVersion1_5 ? "gpt-image-1.5" : "gpt-image-1";
+  const url = `https://api.unifically.com/${endpoint}/generate`;
 
-    return response.data;
-  } catch (error) {
-    logger.error(
-      `Error generating GPT image: ${JSON.stringify(error.response?.data || error.message)}, API_KEY: ${API_KEY}`
-    );
-    throw new Error("Failed to generate image with GPT.");
-  }
+  return axios.post(url, data, {
+    headers: {
+      "Authorization": `Bearer ${API_KEY}`,
+      "Content-Type": "application/json"
+    }
+  });
 };
 
-export const getGptImageStatus = async (taskId: string) => {
-  try {
-    const statusUrl = `https://api.unifically.com/gpt-image-1/status/${taskId}`;
-    const response = await axios.get(statusUrl, {
-      headers: { Authorization: `Bearer ${API_KEY}` },
-      httpAgent,
-      validateStatus: () => true,
-    });
-    return response.data;
-  } catch (error: any) {
-    logger.error(
-      `Error getting GPT image status for task ${taskId}: ${error.response?.data || error.message}`,
-    );
-    if (error.response && error.response.data) return error.response.data;
-    throw new Error("Failed to get GPT image generation status.");
-  }
+export const getGptImageStatus = async (taskId: string, isVersion1_5: boolean = false) => {
+  const endpoint = isVersion1_5 ? "gpt-image-1.5" : "gpt-image-1";
+  const url = `https://api.unifically.com/${endpoint}/status/${taskId}`;
+
+  return axios.get(url, {
+    headers: {
+      "Authorization": `Bearer ${API_KEY}`
+    }
+  });
 };
 
 const downloadImage = async (
