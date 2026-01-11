@@ -18,7 +18,6 @@ router.post(
 
 router.get(
   "/motions",
-  auth,
   asyncHandler(higgsfieldController.getHiggsfieldMotions)
 );
 

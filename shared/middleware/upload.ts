@@ -6,13 +6,13 @@ import { Request } from "express";
 // Define the destinations for directories
 export const gptDir = path.join(__dirname, "../../public/ai/gpt");
 export const falDir = path.join(__dirname, "../../public/ai/fal");
-export const klingDir = path.join(__dirname, "../../public/ai/kling");
 export const nanoDir = path.join(__dirname, "../../public/ai/nano");
+export const klingDir = path.join(__dirname, "../../public/ai/kling");
+export const ttapiDir = path.join(__dirname, "../../public/ai/ttapi");
 export const avatarDir = path.join(__dirname, "../../public/users/avatars");
 export const privateDir = path.join(__dirname, "../../private/user_uploads");
 export const higgsfieldDir = path.join(__dirname, "../../public/ai/higgsfield");
 export const publicationDir = path.join(__dirname, "../../public/publications");
-export const replicateDir = path.join(__dirname, "../../public/ai/replicate");
 
 // Ensure directories exist
 [
@@ -20,11 +20,11 @@ export const replicateDir = path.join(__dirname, "../../public/ai/replicate");
   falDir,
   nanoDir,
   klingDir,
+  ttapiDir,
   avatarDir,
   privateDir,
   higgsfieldDir,
   publicationDir,
-  replicateDir,
 ].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -167,22 +167,22 @@ export const uploadHiggsfieldImage = multer({
   fileFilter: fileFilter,
 }).array("higgsfieldImage", 2);
 
-// Storage for Replicate training images
-export const uploadReplicateImages = multer({
+// Storage for TTAPI Models (Flux2Pro)
+export const uploadTtapiModelImages = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
-      cb(null, replicateDir);
+      cb(null, ttapiDir);
     },
-    filename: (req, file, cb) => {
+    filename: (req: Request, file, cb) => {
       const userId = req.user.id;
       const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
-      cb(null, `replicate-${userId}-${uniqueSuffix}${extension}`);
+      cb(null, `ttapi-${userId}-${uniqueSuffix}${extension}`);
     },
   }),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB total might be needed
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: fileFilter,
-}).array("replicateImages", 15);
+}).array("modelImages", 4);
 
 export const uploadNanoImages = multer({
   storage: multer.diskStorage({

@@ -4,10 +4,16 @@ import * as apiResponse from "../../../shared/utils/apiResponse";
 
 export const getActiveGeneration = async (req: Request, res: Response) => {
     const userId = req.user.id;
+
     const activeJob = await GenerationJob.findOne({
-        where: { userId, status: "pending" }
+        where: {
+            userId,
+            status: ["pending", "processing"],
+        },
+        order: [["createdAt", "DESC"]],
     });
-    apiResponse.success(res, activeJob || null);
+
+    return apiResponse.success(res, activeJob ?? null);
 };
 
 export const getGenerationHistory = async (req: Request, res: Response) => {
@@ -23,6 +29,6 @@ export const getGenerationHistory = async (req: Request, res: Response) => {
 export const getGenerationById = async (req: Request, res: Response) => {
     const { id } = req.params;
     const job = await GenerationJob.findOne({ where: { id, userId: req.user.id } });
-    if(!job) return apiResponse.notFound(res, "Job not found");
+    if (!job) return apiResponse.notFound(res, "Job not found");
     apiResponse.success(res, job);
 };

@@ -1,10 +1,11 @@
 import logger from "../utils/logger";
 import { User } from "../../src/user/models/User";
+import { TtModel } from "../../src/ttapi/models/TtModel";
 import { Gallery } from "../../src/gallery/models/Gallery";
 import { Comment } from "../../src/comment/models/Comment";
-import { Publication } from "../../src/publication/models/Publication";
-import { LikedComment } from "../../src/comment/models/LikedComment";
 import { Subscription } from "../../src/user/models/Subscription";
+import { LikedComment } from "../../src/comment/models/LikedComment";
+import { Publication } from "../../src/publication/models/Publication";
 import { GenerationJob } from "../../src/publication/models/GenerationJob";
 import { LikedPublication } from "../../src/publication/models/LikedPublication";
 
@@ -113,6 +114,16 @@ export const setupAssociations = () => {
     onDelete: "CASCADE",
   });
   GenerationJob.belongsTo(User, {
+    foreignKey: "userId",
+    as: "user",
+  });
+
+  User.hasMany(TtModel, {
+    foreignKey: "userId",
+    as: "ttModels",
+    onDelete: "CASCADE",
+  });
+  TtModel.belongsTo(User, {
     foreignKey: "userId",
     as: "user",
   });

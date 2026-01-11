@@ -6,6 +6,10 @@ import { getUserSocketId } from "../utils/socketManager";
 import { GenerationJob } from "../../src/publication/models/GenerationJob";
 
 import {
+  getStatus as getTtapiStatus,
+  processFinalImage as processTtapi
+} from "../../src/ttapi/service/ttapiService";
+import {
   getGptImageStatus,
   processFinalImage as processGpt
 } from "../../src/gpt/service/gptService";
@@ -83,6 +87,21 @@ const pollJobs = async (io: SocketIOServer) => {
         }
       }
 
+      else if (job.service === "ttapi") {
+        const res = await getTtapiStatus(job.serviceTaskId);
+        statusData = res?.data;
+
+        if (statusData) {
+          if (statusData.status === 2 || statusData.status === "completed") {
+            isComplete = true;
+            externalResultUrl = statusData.resultUrl || statusData.url || statusData.images?.[0];
+          } else if (statusData.status === 3 || statusData.status === "failed") {
+            isFailed = true;
+            errorMessage = "TTAPI Generation Failed";
+          }
+        }
+      }
+
       if (statusData?.status === "failed" && !isFailed) {
         isFailed = true;
         errorMessage = statusData.error?.message || "Unknown error";
@@ -118,6 +137,8 @@ const pollJobs = async (io: SocketIOServer) => {
             resultItem = await processKling(publish, job.userId, externalResultUrl, prompt, t);
           } else if (job.service === "higgsfield") {
             resultItem = await processHiggsfield(publish, job.userId, externalResultUrl, prompt, t);
+          } else if (job.service === "ttapi") {
+            resultItem = await processTtapi(publish, job.userId, externalResultUrl, prompt, t);
           }
 
           job.status = "completed";

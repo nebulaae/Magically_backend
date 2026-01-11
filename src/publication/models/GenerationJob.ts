@@ -4,7 +4,7 @@ import { Model, DataTypes } from "sequelize";
 export interface GenerationJobAttributes {
   id: string;
   userId: string;
-  service: "kling" | "higgsfield" | "gpt" | "nano" | "nano-pro" | "gpt-1.5";
+  service: "kling" | "higgsfield" | "gpt" | "nano" | "nano-pro" | "gpt-1.5" | "ttapi";
   serviceTaskId: string;
   status: "pending" | "processing" | "completed" | "failed";
   resultUrl?: string;
@@ -21,7 +21,7 @@ export interface GenerationJobAttributes {
 export class GenerationJob extends Model<GenerationJobAttributes> implements GenerationJobAttributes {
   public id!: string;
   public userId!: string;
-  public service!: "kling" | "higgsfield" | "gpt" | "nano" | "nano-pro" | "gpt-1.5";
+  public service!: "kling" | "higgsfield" | "gpt" | "nano" | "nano-pro" | "gpt-1.5" | "ttapi";
   public serviceTaskId!: string;
   public status!: "pending" | "processing" | "completed" | "failed";
   public resultUrl?: string;
@@ -34,7 +34,7 @@ GenerationJob.init(
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     userId: { type: DataTypes.UUID, allowNull: false, references: { model: "users", key: "id" } },
     service: {
-      type: DataTypes.ENUM("kling", "higgsfield", "gpt", "nano", "nano-pro", "gpt-1.5"),
+      type: DataTypes.ENUM("kling", "higgsfield", "gpt", "nano", "nano-pro", "gpt-1.5", "ttapi"),
       allowNull: false
     },
     serviceTaskId: { type: DataTypes.STRING, allowNull: false, unique: true },
