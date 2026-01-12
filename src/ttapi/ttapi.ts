@@ -14,6 +14,11 @@ router.get(
     auth,
     asyncHandler(ttapiController.getModels)
 );
+router.get(
+    "/models/:modelId",
+    auth,
+    asyncHandler(ttapiController.getModel)
+);
 router.post(
     "/models",
     auth,

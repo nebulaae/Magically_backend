@@ -48,6 +48,15 @@ export const deleteTtModel = async (userId: string, modelId: string) => {
     return { message: "Model deleted successfully" };
 };
 
+export const getTtModelById = async (userId: string, modelId: string) => {
+    const model = await ttapiRepository.findModelById(modelId);
+    // Проверка на владельца, чтобы чужие модели не смотрели
+    if (model && model.userId === userId) {
+        return model;
+    }
+    return null;
+};
+
 // --- Generation ---
 
 export const generateImage = async (userId: string, prompt: string, modelId: string) => {

@@ -36,6 +36,19 @@ export const deleteModel = async (req: Request, res: Response) => {
     apiResponse.success(res, null, "Model deleted.");
 };
 
+export const getModel = async (req: Request, res: Response) => {
+    const { modelId } = req.params;
+    const userId = req.user.id;
+
+    const model = await ttapiService.getTtModelById(userId, modelId);
+
+    if (!model) {
+        return apiResponse.notFound(res, "Model not found");
+    }
+
+    apiResponse.success(res, model);
+};
+
 // --- Generation ---
 
 export const generate = async (req: Request, res: Response) => {
