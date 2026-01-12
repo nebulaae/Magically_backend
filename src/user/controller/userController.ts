@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import logger from "../../../shared/utils/logger";
 import { Request, Response } from "express";
 import * as userService from "../service/userService";
@@ -21,7 +19,7 @@ const handleErrors = (error: Error, res: Response) => {
 
 export const getProfile = async (req: Request, res: Response) => {
   try {
-    const { username } = req.params;
+    const username = Array.isArray(req.params.username) ? req.params.username[0] : req.params.username;
     const currentUser = req.user;
     const profile = await userService.getProfileByUsername(
       username,
@@ -104,7 +102,7 @@ export const searchUsers = async (req: Request, res: Response) => {
 export const subscribe = async (req: Request, res: Response) => {
   try {
     const followerId = req.user.id;
-    const { userId: followingId } = req.params;
+    const followingId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
     const result = await userService.subscribe(followerId, followingId);
     apiResponse.success(res, null, result.message);
   } catch (error) {
@@ -115,7 +113,7 @@ export const subscribe = async (req: Request, res: Response) => {
 export const unsubscribe = async (req: Request, res: Response) => {
   try {
     const followerId = req.user.id;
-    const { userId: followingId } = req.params;
+    const followingId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
     const result = await userService.unsubscribe(followerId, followingId);
     apiResponse.success(res, null, result.message);
   } catch (error) {
@@ -124,8 +122,6 @@ export const unsubscribe = async (req: Request, res: Response) => {
 };
 
 export const getFollowers = async (req: Request, res: Response) => {
-  // This is duplicative of getMyFollowers but for another user.
-  // Re-using my followers logic for now.
   try {
     const { username } = req.params;
     const user = await userRepository.findUserBy({ username });
@@ -138,7 +134,6 @@ export const getFollowers = async (req: Request, res: Response) => {
 };
 
 export const getFollowing = async (req: Request, res: Response) => {
-  // This is duplicative of getMyFollowings but for another user.
   try {
     const { username } = req.params;
     const user = await userRepository.findUserBy({ username });

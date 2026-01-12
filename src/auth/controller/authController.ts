@@ -110,7 +110,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    const { token } = req.params;
+    const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
     const { password } = req.body;
     if (!password) {
       return apiResponse.badRequest(res, "Password is required.");

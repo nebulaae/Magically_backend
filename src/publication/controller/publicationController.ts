@@ -5,7 +5,7 @@ import logger from "../../../shared/utils/logger";
 
 export const getPublicationById = async (req: Request, res: Response) => {
   try {
-    const { publicationId } = req.params;
+    const { publicationId } = req.params as { publicationId: string };
     const userId = req.user?.id || null;
     const publication = await publicationService.getPublicationById(
       publicationId,
@@ -80,7 +80,7 @@ export const createPublication = async (req: Request, res: Response) => {
 
 export const updatePublication = async (req: Request, res: Response) => {
   try {
-    const { publicationId } = req.params;
+    const { publicationId } = req.params as { publicationId: string };
     const { content } = req.body;
     const userId = req.user.id;
     const publication = await publicationService.updatePublication(
@@ -105,7 +105,7 @@ export const updatePublication = async (req: Request, res: Response) => {
 
 export const deletePublication = async (req: Request, res: Response) => {
   try {
-    const { publicationId } = req.params;
+    const { publicationId } = req.params as { publicationId: string };
     const userId = req.user.id;
     const result = await publicationService.deletePublication(
       publicationId,
@@ -124,7 +124,7 @@ export const deletePublication = async (req: Request, res: Response) => {
 
 export const likePublication = async (req: Request, res: Response) => {
   try {
-    const { publicationId } = req.params;
+    const { publicationId } = req.params as { publicationId: string };
     const userId = req.user.id;
     const result = await publicationService.likePublication(
       publicationId,
@@ -147,7 +147,7 @@ export const likePublication = async (req: Request, res: Response) => {
 
 export const unlikePublication = async (req: Request, res: Response) => {
   try {
-    const { publicationId } = req.params;
+    const { publicationId } = req.params as { publicationId: string };
     const userId = req.user.id;
     const result = await publicationService.unlikePublication(
       publicationId,

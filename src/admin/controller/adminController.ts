@@ -14,14 +14,14 @@ export const login = async (req: Request, res: Response) => {
   apiResponse.success(res, result, "Admin login successful.");
 };
 
-export const getAllUsers = async (req: Request, res: Response) => {
+export const getAllUsers = async (_req: Request, res: Response) => {
   const users = await adminService.getAllUsers();
   apiResponse.success(res, users);
 };
 
 export const blockUser = async (req: Request, res: Response) => {
   const { userId } = req.params;
-  const user = await adminService.blockUser(userId);
+  const user = await adminService.blockUser(Array.isArray(userId) ? userId[0] : userId);
 
   if (!user) {
     return apiResponse.notFound(res, "User not found");
@@ -32,7 +32,7 @@ export const blockUser = async (req: Request, res: Response) => {
 
 export const unblockUser = async (req: Request, res: Response) => {
   const { userId } = req.params;
-  const user = await adminService.unblockUser(userId);
+  const user = await adminService.unblockUser(Array.isArray(userId) ? userId[0] : userId);
 
   if (!user) {
     return apiResponse.notFound(res, "User not found");
@@ -43,7 +43,7 @@ export const unblockUser = async (req: Request, res: Response) => {
 
 export const deletePublication = async (req: Request, res: Response) => {
   const { publicationId } = req.params;
-  const result = await adminService.deletePublication(publicationId);
+  const result = await adminService.deletePublication(Array.isArray(publicationId) ? publicationId[0] : publicationId);
 
   if (!result) {
     return apiResponse.notFound(res, "Publication not found");
@@ -55,7 +55,7 @@ export const deletePublication = async (req: Request, res: Response) => {
 export const setPhotoOfTheDay = async (req: Request, res: Response) => {
   const { publicationId } = req.params;
   try {
-    const success = await adminService.setPhotoOfTheDay(publicationId);
+    const success = await adminService.setPhotoOfTheDay(Array.isArray(publicationId) ? publicationId[0] : publicationId);
     if (!success) {
       return apiResponse.notFound(res, "Publication not found");
     }
@@ -71,17 +71,17 @@ export const giveTokens = async (req: Request, res: Response) => {
   const { amount, reason } = req.body;
   if (!amount || !reason) return apiResponse.badRequest(res, "Amount and reason are required");
   
-  await adminService.addTokensToUser(req.user.id, userId, Number(amount), reason);
+  await adminService.addTokensToUser(req.user.id, Array.isArray(userId) ? userId[0] : userId, Number(amount), reason);
   apiResponse.success(res, null, "Tokens added successfully");
 };
 
 export const deleteUserComment = async (req: Request, res: Response) => {
   const { commentId } = req.params;
-  await adminService.deleteComment(commentId);
+  await adminService.deleteComment(Array.isArray(commentId) ? commentId[0] : commentId);
   apiResponse.success(res, null, "Comment deleted by admin");
 };
 
-export const getAnalytics = async (req: Request, res: Response) => {
+export const getAnalytics = async (_req: Request, res: Response) => {
   const data = await adminService.getFullAnalytics();
   apiResponse.success(res, data);
 };

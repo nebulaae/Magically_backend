@@ -5,7 +5,7 @@ import logger from "../../../shared/utils/logger";
 
 export const createComment = async (req: Request, res: Response) => {
   try {
-    const { publicationId } = req.params;
+    const { publicationId } = req.params as { publicationId: string };
     const { text } = req.body;
     const userId = req.user.id;
     if (!text) {
@@ -25,7 +25,7 @@ export const createComment = async (req: Request, res: Response) => {
 
 export const replyToComment = async (req: Request, res: Response) => {
   try {
-    const { commentId } = req.params;
+    const { commentId } = req.params as { commentId: string };
     const { text } = req.body;
     const userId = req.user.id;
     if (!text) {
@@ -44,7 +44,7 @@ export const getCommentsForPublication = async (
   res: Response,
 ) => {
   try {
-    const { publicationId } = req.params;
+    const { publicationId } = req.params as { publicationId: string };
     // pass current user id when available so service can mark isLiked per comment
     const userId = req.user && (req.user as any).id;
     const comments = await commentService.getCommentsForPublication(
@@ -60,7 +60,7 @@ export const getCommentsForPublication = async (
 
 export const updateComment = async (req: Request, res: Response) => {
   try {
-    const { commentId } = req.params;
+    const { commentId } = req.params as { commentId: string };
     const { text } = req.body;
     const userId = req.user.id;
     const comment = await commentService.updateComment(commentId, userId, text);
@@ -76,7 +76,7 @@ export const updateComment = async (req: Request, res: Response) => {
 
 export const deleteComment = async (req: Request, res: Response) => {
   try {
-    const { commentId } = req.params;
+    const { commentId } = req.params as { commentId: string };
     const userId = req.user.id;
     const result = await commentService.deleteComment(commentId, userId);
     apiResponse.success(res, null, result.message);
@@ -91,7 +91,7 @@ export const deleteComment = async (req: Request, res: Response) => {
 
 export const likeComment = async (req: Request, res: Response) => {
   try {
-    const { commentId } = req.params;
+    const { commentId } = req.params as { commentId: string };
     const userId = req.user.id;
     const result = await commentService.likeComment(commentId, userId);
     apiResponse.success(res, null, result.message);
@@ -106,7 +106,7 @@ export const likeComment = async (req: Request, res: Response) => {
 
 export const unlikeComment = async (req: Request, res: Response) => {
   try {
-    const { commentId } = req.params;
+    const { commentId } = req.params as { commentId: string };
     const userId = req.user.id;
     const result = await commentService.unlikeComment(commentId, userId);
     apiResponse.success(res, null, result.message);

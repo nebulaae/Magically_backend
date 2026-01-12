@@ -31,13 +31,13 @@ export const getModels = async (req: Request, res: Response) => {
 
 export const deleteModel = async (req: Request, res: Response) => {
     const userId = req.user.id;
-    const { modelId } = req.params;
+    const modelId = Array.isArray(req.params.modelId) ? req.params.modelId[0] : req.params.modelId;
     await ttapiService.deleteTtModel(userId, modelId);
     apiResponse.success(res, null, "Model deleted.");
 };
 
 export const getModel = async (req: Request, res: Response) => {
-    const { modelId } = req.params;
+    const modelId = Array.isArray(req.params.modelId) ? req.params.modelId[0] : req.params.modelId;
     const userId = req.user.id;
 
     const model = await ttapiService.getTtModelById(userId, modelId);
