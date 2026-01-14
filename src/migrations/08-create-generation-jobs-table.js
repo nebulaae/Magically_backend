@@ -19,7 +19,7 @@ module.exports = {
         onDelete: 'CASCADE',
       },
       service: {
-        type: Sequelize.ENUM("kling", "higgsfield", "gpt", "nano", "nano-pro", "gpt-1.5", "ttapi"),
+        type: Sequelize.ENUM("kling", "higgsfield", "gpt", "nano", "nano-pro", "gpt-1.5", "ttapi", "flux"),
         allowNull: false,
       },
       serviceTaskId: {

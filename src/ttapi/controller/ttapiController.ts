@@ -51,8 +51,11 @@ export const getModel = async (req: Request, res: Response) => {
 
 // --- Generation ---
 
+// ... imports
+
+// Update generate function
 export const generate = async (req: Request, res: Response) => {
-    const { prompt, modelId, publish } = req.body;
+    const { prompt, modelId, publish, width, height, seed, safety_tolerance } = req.body;
     const userId = req.user.id;
     const isPublish = publish === 'true' || publish === true;
 
@@ -65,9 +68,15 @@ export const generate = async (req: Request, res: Response) => {
     try {
         await deductTokensForGeneration(userId, "image", t);
 
-        const result = await ttapiService.generateImage(userId, prompt, modelId);
+        // Передаем новые параметры
+        const result = await ttapiService.generateImage(userId, prompt, modelId, {
+            width,
+            height,
+            seed,
+            safety_tolerance
+        });
 
-        const taskId = result?.data?.jobId;
+        const taskId = result?.data?.jobId; // Исходя из структуры ответа 200 response
 
         if (!taskId) {
             throw new Error("Failed to retrieve Job ID from TTAPI");
@@ -81,12 +90,14 @@ export const generate = async (req: Request, res: Response) => {
             meta: {
                 prompt,
                 publish: isPublish,
-                modelId
+                modelId,
+                seed,
+                width,
+                height
             }
         }, { transaction: t });
 
         await t.commit();
-
         apiResponse.success(res, { jobId: job.id }, "Flux 2 Pro generation started.");
     } catch (error: any) {
         await t.rollback();

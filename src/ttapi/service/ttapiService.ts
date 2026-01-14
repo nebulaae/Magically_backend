@@ -12,6 +12,14 @@ const BACKEND_URL = process.env.BACKEND_URL;
 
 // --- Model Management ---
 
+export interface FluxGenerateOptions {
+    width?: number;
+    height?: number;
+    seed?: number;
+    safety_tolerance?: number;
+    output_format?: string;
+}
+
 export const createTtModel = async (userId: string, name: string, description: string, files: Express.Multer.File[]) => {
     if (files.length !== 4) {
         throw new Error("Exactly 4 images are required to create a model.");
@@ -59,48 +67,63 @@ export const getTtModelById = async (userId: string, modelId: string) => {
 
 // --- Generation ---
 
-export const generateImage = async (userId: string, prompt: string, modelId: string) => {
+export const generateImage = async (
+    userId: string,
+    prompt: string,
+    modelId: string,
+    options: FluxGenerateOptions = {}
+) => {
     const model = await ttapiRepository.findModelById(modelId);
     if (!model) throw new Error("Model not found");
 
-    // Формируем полные URL для API
     const inputImages = model.imagePaths.map(p => `${BACKEND_URL}${p}`);
 
-    const payload = [
-        {
-            "ttapi": {
-                "prompt": prompt,
-                "input_image": inputImages[0],
-                "input_image_2": inputImages[1],
-                "input_image_3": inputImages[2],
-                "input_image_4": inputImages[3]
-            }
-        }
-    ];
+    const requestBody = {
+        prompt: prompt,
+        input_image: inputImages[0] || "",
+        input_image_2: inputImages[1] || "",
+        input_image_3: inputImages[2] || "",
+        input_image_4: inputImages[3] || "",
+        input_image_5: inputImages[0] || "",
+        input_image_6: inputImages[1] || "",
+        input_image_7: inputImages[2] || "",
+        input_image_8: inputImages[3] || "",
+        seed: options.seed ? Number(options.seed) : undefined,
+        width: options.width ? Number(options.width) : undefined,
+        height: options.height ? Number(options.height) : undefined,
+        safety_tolerance: options.safety_tolerance ? Number(options.safety_tolerance) : 2,
+        output_format: options.output_format || "png"
+    };
+
+    Object.keys(requestBody).forEach(key => (requestBody as any)[key] === undefined && delete (requestBody as any)[key]);
 
     try {
-        const response = await axios.post(`${TTAPI_URL}/bfl/v1/flux-2-pro`, payload, {
+        const response = await axios.post(`${TTAPI_URL}/bfl/v1/flux-2-pro`, requestBody, {
             headers: {
-                "TT-API-KEY": TTAPI_KEY,
+                "TT-API-KEY": String(TTAPI_KEY),
                 "Content-Type": "application/json"
             }
         });
 
-        // TTAPI возвращает структуру: { code: 200, msg: "success", data: { jobId: "..." } }
         return response.data;
     } catch (error: any) {
-        logger.error(`TTAPI Generation Error: ${error.response?.data || error.message}`);
+        logger.error(`TTAPI Generation Error: ${error.response?.data?.message || error.message}`);
         throw new Error("Failed to start generation with TTAPI");
     }
 };
 
 export const getStatus = async (jobId: string) => {
     try {
-        const response = await axios.post(`${TTAPI_URL}/flux/fetch`, { jobId }, {
-            headers: {
-                "TT-API-KEY": TTAPI_KEY
+        const response = await axios.post(
+            `${TTAPI_URL}/flux/fetch`,
+            { jobId },
+            {
+                headers: {
+                    "TT-API-KEY": String(TTAPI_KEY),
+                    "Content-Type": "application/json"
+                }
             }
-        });
+        );
         return response.data;
     } catch (error: any) {
         logger.error(`TTAPI Status Error: ${error.message}`);

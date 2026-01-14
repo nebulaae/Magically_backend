@@ -10,6 +10,10 @@ import {
   processFinalImage as processTtapi
 } from "../../src/ttapi/service/ttapiService";
 import {
+  getFluxImageStatus,
+  processFinalImage as processFlux
+} from "../../src/flux/service/fluxService";
+import {
   getGptImageStatus,
   processFinalImage as processGpt
 } from "../../src/gpt/service/gptService";
@@ -87,18 +91,32 @@ const pollJobs = async (io: SocketIOServer) => {
         }
       }
 
+      else if (job.service === "flux") {
+        const res = await getFluxImageStatus(job.serviceTaskId);
+        statusData = res?.data;
+        if (statusData?.status === "completed") {
+          isComplete = true;
+          externalResultUrl = statusData.output?.image_url || statusData.image_url;
+        } else if (statusData?.status === "failed") {
+          isFailed = true;
+          errorMessage = "Flux generation failed via Unifically";
+        }
+      }
+
       else if (job.service === "ttapi") {
         const res = await getTtapiStatus(job.serviceTaskId);
-        statusData = res?.data;
+        statusData = res;
 
-        if (statusData) {
-          if (statusData.status === 2 || statusData.status === "completed") {
+        if (statusData?.status === "SUCCESS" && statusData?.data) {
+          const innerData = statusData.data;
+
+          if (innerData.imageUrl) {
             isComplete = true;
-            externalResultUrl = statusData.resultUrl || statusData.url || statusData.images?.[0];
-          } else if (statusData.status === 3 || statusData.status === "failed") {
-            isFailed = true;
-            errorMessage = "TTAPI Generation Failed";
+            externalResultUrl = innerData.imageUrl;
           }
+        } else if (statusData?.status === "FAILED") {
+          isFailed = true;
+          errorMessage = statusData.message || "TTAPI Failed";
         }
       }
 
@@ -137,6 +155,8 @@ const pollJobs = async (io: SocketIOServer) => {
             resultItem = await processKling(publish, job.userId, externalResultUrl, prompt, t);
           } else if (job.service === "higgsfield") {
             resultItem = await processHiggsfield(publish, job.userId, externalResultUrl, prompt, t);
+          } else if (job.service === "flux") {
+            resultItem = await processFlux(publish, job.userId, externalResultUrl, prompt, t);
           } else if (job.service === "ttapi") {
             resultItem = await processTtapi(publish, job.userId, externalResultUrl, prompt, t);
           }
