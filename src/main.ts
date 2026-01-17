@@ -61,7 +61,7 @@ app.use(express.json());
 app.use(metricsMiddleware);
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/v1/", mainRouter);
-app.use(express.static(path.join(__dirname, "../public")));
+app.use('/public', express.static(path.resolve(process.cwd(), 'public')));
 app.use(
   pinoHttp({
     logger,
