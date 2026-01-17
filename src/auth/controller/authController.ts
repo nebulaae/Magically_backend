@@ -2,6 +2,7 @@ import logger from "../../../shared/utils/logger";
 import * as authService from "../service/authService";
 import * as apiResponse from "../../../shared/utils/apiResponse";
 import { Request, Response } from "express";
+import { verifyTelegramWebAppData } from "../../../shared/utils/telegram";
 
 export const registerStep1 = async (req: Request, res: Response) => {
   try {
@@ -56,6 +57,29 @@ export const registerStep3 = async (req: Request, res: Response) => {
   } catch (error) {
     logger.error(`Register step 3 error: ${error.message}`);
     apiResponse.badRequest(res, error.message);
+  }
+};
+
+export const telegramAuth = async (req: Request, res: Response) => {
+  try {
+    const { initData } = req.body;
+    if (!initData) return apiResponse.badRequest(res, "No init data provided");
+
+    const tgUser = verifyTelegramWebAppData(initData);
+    if (!tgUser) return apiResponse.unauthorized(res, "Invalid Telegram data");
+
+    const result = await authService.telegramLogin(tgUser);
+
+    res.cookie("token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 365 * 24 * 60 * 60 * 1000,
+    });
+
+    apiResponse.success(res, result, "Telegram login successful");
+  } catch (error) {
+    logger.error(`Telegram Auth Error: ${error.message}`);
+    apiResponse.internalError(res, error.message);
   }
 };
 

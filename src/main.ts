@@ -11,6 +11,7 @@ import promBundle from "express-prom-bundle";
 
 import { pinoHttp } from "pino-http";
 import { Server as SocketIOServer } from "socket.io";
+import { createAdmin } from "../shared/scripts/createAdmin";
 import { startJobPoller } from "../shared/workers/jobPoller";
 import { seedTestData } from "../shared/scripts/seedTestData";
 import { setupAssociations } from "../shared/models/associations";
@@ -37,9 +38,20 @@ const io = new SocketIOServer(server, {
     methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
-
+const allowedOrigins = [
+  process.env.FRONTEND_URL || "http://localhost:3000",
+  process.env.ADMIN_URL || "http://localhost:3001",
+];
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -85,6 +97,8 @@ const startServer = async () => {
 
     // Seed
     // await seedTestData();
+    // Admin
+    await createAdmin();
 
     server.listen(PORT, () => {
       logger.info(`Server successfully started and running on port ${PORT}`);

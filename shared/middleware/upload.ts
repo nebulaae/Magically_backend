@@ -5,24 +5,22 @@ import { Request } from "express";
 
 // Define the destinations for directories
 export const gptDir = path.join(__dirname, "../../public/ai/gpt");
-export const falDir = path.join(__dirname, "../../public/ai/fal");
 export const nanoDir = path.join(__dirname, "../../public/ai/nano");
+export const fluxDir = path.join(__dirname, "../../public/ai/flux");
 export const klingDir = path.join(__dirname, "../../public/ai/kling");
 export const ttapiDir = path.join(__dirname, "../../public/ai/ttapi");
 export const avatarDir = path.join(__dirname, "../../public/users/avatars");
-export const privateDir = path.join(__dirname, "../../private/user_uploads");
 export const higgsfieldDir = path.join(__dirname, "../../public/ai/higgsfield");
 export const publicationDir = path.join(__dirname, "../../public/publications");
 
 // Ensure directories exist
 [
   gptDir,
-  falDir,
   nanoDir,
+  fluxDir,
   klingDir,
   ttapiDir,
   avatarDir,
-  privateDir,
   higgsfieldDir,
   publicationDir,
 ].forEach((dir) => {
@@ -30,8 +28,6 @@ export const publicationDir = path.join(__dirname, "../../public/publications");
     fs.mkdirSync(dir, { recursive: true });
   }
 });
-
-
 
 // File filter to only accept image files
 const fileFilter = (
@@ -116,23 +112,6 @@ export const uploadPublicationImage = multer({
   fileFilter: imageAndVideoFileFilter,
 }).single("publicationMedia");
 
-// Storage to upload image to falai
-export const uploadFalImage = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, falDir);
-    },
-    filename: (req, file, cb) => {
-      const userId = req.user.id;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      const extension = path.extname(file.originalname);
-      cb(null, `kling-${userId}-${uniqueSuffix}${extension}`);
-    },
-  }),
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
-  fileFilter: fileFilter,
-}).single("falImage");
-
 // Storage to upload image to kling
 export const uploadKlingImage = multer({
   storage: multer.diskStorage({
@@ -182,7 +161,21 @@ export const uploadTtapiModelImages = multer({
   }),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: fileFilter,
-}).array("modelImages", 4);
+}).array("modelImages", 8);
+
+export const uploadFluxModelImages = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => { cb(null, fluxDir); },
+    filename: (req, file, cb) => {
+      const userId = req.user.id;
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const extension = path.extname(file.originalname);
+      cb(null, `flux-${userId}-${uniqueSuffix}${extension}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: fileFilter,
+}).array("modelImages", 8);
 
 export const uploadNanoImages = multer({
   storage: multer.diskStorage({

@@ -10,8 +10,6 @@ const TTAPI_KEY = process.env.TTAPI_KEY;
 const TTAPI_URL = "https://api.ttapi.org";
 const BACKEND_URL = process.env.BACKEND_URL;
 
-// --- Model Management ---
-
 export interface FluxGenerateOptions {
     width?: number;
     height?: number;
@@ -20,19 +18,38 @@ export interface FluxGenerateOptions {
     output_format?: string;
 }
 
-export const createTtModel = async (userId: string, name: string, description: string, files: Express.Multer.File[]) => {
-    if (files.length !== 4) {
-        throw new Error("Exactly 4 images are required to create a model.");
+export const createTtModel = async (userId: string, name: string, description: string, instruction: string, files: Express.Multer.File[]) => {
+    if (files.length === 0) {
+        throw new Error("At least one image is required.");
     }
 
     const imagePaths = files.map(f => `/ai/ttapi/${f.filename}`);
-
     return await ttapiRepository.createModel({
         userId,
         name,
         description,
+        instruction,
         imagePaths
     });
+};
+
+export const updateTtModel = async (userId: string, modelId: string, data: { name?: string, description?: string, instruction?: string }, files?: Express.Multer.File[]) => {
+    const model = await ttapiRepository.findModelById(modelId);
+    if (!model || model.userId !== userId) throw new Error("Access denied or model not found");
+
+    if (files && files.length > 0) {
+        model.imagePaths.forEach(p => {
+            const fullPath = path.join(__dirname, "../../../public", p);
+            if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+        });
+        model.imagePaths = files.map(f => `/ai/ttapi/${f.filename}`);
+    }
+
+    if (data.name) model.name = data.name;
+    if (data.description !== undefined) model.description = data.description;
+    if (data.instruction !== undefined) model.instruction = data.instruction;
+
+    return await model.save();
 };
 
 export const getUserModels = async (userId: string) => {
@@ -44,21 +61,18 @@ export const deleteTtModel = async (userId: string, modelId: string) => {
     if (!model) throw new Error("Model not found");
     if (model.userId !== userId) throw new Error("Access denied");
 
-    // Удаляем файлы с диска
     model.imagePaths.forEach(relativePath => {
         const fullPath = path.join(__dirname, "../../../public", relativePath);
         if (fs.existsSync(fullPath)) {
             fs.unlinkSync(fullPath);
         }
     });
-
     await ttapiRepository.deleteModel(model);
     return { message: "Model deleted successfully" };
 };
 
 export const getTtModelById = async (userId: string, modelId: string) => {
     const model = await ttapiRepository.findModelById(modelId);
-    // Проверка на владельца, чтобы чужие модели не смотрели
     if (model && model.userId === userId) {
         return model;
     }
@@ -78,16 +92,14 @@ export const generateImage = async (
 
     const inputImages = model.imagePaths.map(p => `${BACKEND_URL}${p}`);
 
-    const requestBody = {
-        prompt: prompt,
-        input_image: inputImages[0] || "",
-        input_image_2: inputImages[1] || "",
-        input_image_3: inputImages[2] || "",
-        input_image_4: inputImages[3] || "",
-        input_image_5: inputImages[0] || "",
-        input_image_6: inputImages[1] || "",
-        input_image_7: inputImages[2] || "",
-        input_image_8: inputImages[3] || "",
+    // ДОБАВЛЕНИЕ ИНСТРУКЦИИ
+    const finalPrompt = model.instruction
+        ? `${model.instruction}. ${prompt}`
+        : prompt;
+
+    // TTAPI принимает input_image, input_image_2 ... до 8
+    const requestBody: any = {
+        prompt: finalPrompt,
         seed: options.seed ? Number(options.seed) : undefined,
         width: options.width ? Number(options.width) : undefined,
         height: options.height ? Number(options.height) : undefined,
@@ -95,16 +107,22 @@ export const generateImage = async (
         output_format: options.output_format || "png"
     };
 
-    Object.keys(requestBody).forEach(key => (requestBody as any)[key] === undefined && delete (requestBody as any)[key]);
+    // Заполняем input_image_N
+    if (inputImages[0]) requestBody.input_image = inputImages[0];
+    for (let i = 1; i < inputImages.length && i < 8; i++) {
+        requestBody[`input_image_${i + 1}`] = inputImages[i];
+    }
+
+    // Удаляем undefined ключи
+    Object.keys(requestBody).forEach(key => requestBody[key] === undefined && delete requestBody[key]);
 
     try {
-        const response = await axios.post(`${TTAPI_URL}/bfl/v1/flux-2-pro`, requestBody, {
+        const response = await axios.post(`${TTAPI_URL}/bfl/v1/flux-2-max`, requestBody, {
             headers: {
                 "TT-API-KEY": String(TTAPI_KEY),
                 "Content-Type": "application/json"
             }
         });
-
         return response.data;
     } catch (error: any) {
         logger.error(`TTAPI Generation Error: ${error.response?.data?.message || error.message}`);
@@ -131,8 +149,6 @@ export const getStatus = async (jobId: string) => {
     }
 };
 
-// --- Result Processing ---
-
 const downloadImage = async (imageUrl: string): Promise<string> => {
     const imageDir = path.join(__dirname, "../../../public/images/ttapi");
     if (!fs.existsSync(imageDir)) {
@@ -140,7 +156,6 @@ const downloadImage = async (imageUrl: string): Promise<string> => {
     }
     const filename = `${uuidv4()}.png`;
     const outputPath = path.join(imageDir, filename);
-
     try {
         const response = await axios({
             method: "GET",
@@ -171,14 +186,14 @@ export const processFinalImage = async (
     if (publish) {
         return ttapiRepository.createPublication({
             userId,
-            content: prompt || "Flux 2 Pro Generation",
+            content: prompt || "Magic photo",
             imageUrl: localImagePath,
             category: "flux-2-pro",
         }, t);
     } else {
         return ttapiRepository.createGalleryItem({
             userId,
-            prompt: prompt || "Flux 2 Pro Generation",
+            prompt: prompt || "Magic photo",
             imageUrl: localImagePath,
             generationType: "image-flux-2",
         }, t);

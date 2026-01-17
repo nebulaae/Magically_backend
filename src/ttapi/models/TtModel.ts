@@ -6,6 +6,7 @@ export interface TtModelAttributes {
     userId: string;
     name: string;
     description?: string;
+    instruction?: string;
     imagePaths: string[];
     createdAt?: Date;
     updatedAt?: Date;
@@ -16,6 +17,7 @@ export class TtModel extends Model<TtModelAttributes> implements TtModelAttribut
     public userId!: string;
     public name!: string;
     public description?: string;
+    public instruction?: string;
     public imagePaths!: string[];
 
     public readonly createdAt!: Date;

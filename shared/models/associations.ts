@@ -8,6 +8,7 @@ import { LikedComment } from "../../src/comment/models/LikedComment";
 import { Publication } from "../../src/publication/models/Publication";
 import { GenerationJob } from "../../src/publication/models/GenerationJob";
 import { LikedPublication } from "../../src/publication/models/LikedPublication";
+import { FluxModel } from "../../src/flux/models/FluxModel";
 
 export const setupAssociations = () => {
   // User -> Publication (One-to-Many)
@@ -118,6 +119,7 @@ export const setupAssociations = () => {
     as: "user",
   });
 
+  // User -> TtModels (One-to-Many)
   User.hasMany(TtModel, {
     foreignKey: "userId",
     as: "ttModels",
@@ -126,6 +128,17 @@ export const setupAssociations = () => {
   TtModel.belongsTo(User, {
     foreignKey: "userId",
     as: "user",
+  });
+
+  // User -> FluxModels (One-to-Many)
+  User.hasMany(FluxModel, {
+    foreignKey: "userId",
+    as: "fluxModels",
+    onDelete: "CASCADE"
+  });
+  FluxModel.belongsTo(User, {
+    foreignKey: "userId",
+    as: "user"
   });
 
   logger.info("Database associations have been set up.");

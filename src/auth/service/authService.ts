@@ -6,6 +6,7 @@ import {
   sendVerificationEmail,
   sendPasswordResetEmail,
 } from "../../../shared/scripts/email";
+import { User } from "../../user/models/User";
 
 export const registerStep1 = async (email: string) => {
   const existingUser = await authRepository.findUserByEmail(email);
@@ -59,25 +60,69 @@ export const registerStep3 = async (
   username: string,
   password: string,
 ) => {
+  if (!username || username.trim().length === 0) {
+    throw new Error("Username is required.");
+  }
+
   const user = await authRepository.findVerifiedUserByEmail(email);
   if (!user) {
     throw new Error("Email not verified or user not found.");
   }
 
   const existingUsername = await authRepository.findUserByUsername(username);
-  if (existingUsername) {
+
+  if (existingUsername && existingUsername.id !== user.id) {
     throw new Error("Username is already taken.");
   }
 
   await authRepository.updateUser(user, {
     fullname,
     username,
-    password, // Hashed by beforeUpdate hook
+    password,
   });
 
   const token = generateToken(user.id);
   const { password: _, ...userResponse } = user.get({ plain: true });
 
+  return { token, user: userResponse };
+};
+
+export const telegramLogin = async (telegramUser: any) => {
+  let user = await User.findOne({ where: { telegramId: String(telegramUser.id) } });
+
+  if (!user) {
+    if (telegramUser.username) {
+      user = await User.findOne({ where: { username: telegramUser.username } });
+      if (user) {
+        user.telegramId = String(telegramUser.id);
+        await user.save();
+      }
+    }
+
+    if (!user) {
+      const baseUsername = telegramUser.username || `tg_${telegramUser.id}`;
+      let finalUsername = baseUsername;
+      let counter = 1;
+      while (await User.findOne({ where: { username: finalUsername } })) {
+        finalUsername = `${baseUsername}_${counter}`;
+        counter++;
+      }
+
+      user = await User.create({
+        fullname: `${telegramUser.first_name} ${telegramUser.last_name || ''}`.trim(),
+        username: finalUsername,
+        email: `tg_${telegramUser.id}@volshebny.bot`,
+        telegramId: String(telegramUser.id),
+        verified: true,
+        role: 'user',
+        tokens: 500, // Бонус за регистрацию
+        password: crypto.randomBytes(16).toString('hex')
+      });
+    }
+  }
+
+  const token = generateToken(user.id);
+  const { password: _, ...userResponse } = user.get({ plain: true });
   return { token, user: userResponse };
 };
 

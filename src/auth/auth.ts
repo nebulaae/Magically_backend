@@ -11,6 +11,9 @@ router.post("/register-step-1", asyncHandler(authController.registerStep1));
 router.post("/register-step-2", asyncHandler(authController.registerStep2));
 router.post("/register-step-3", asyncHandler(authController.registerStep3));
 
+// Telegram auth
+router.post("/telegram", asyncHandler(authController.telegramAuth));
+
 // Login user
 router.post("/login", asyncHandler(authController.login));
 

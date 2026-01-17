@@ -30,16 +30,11 @@ export interface UserAttributes {
   role: "user" | "admin";
   isBlocked: boolean;
   verified: boolean;
+  telegramId?: string;
   otp?: string;
   otpExpires?: Date;
   passwordResetToken?: string;
   passwordResetTokenExpires?: Date;
-  replicateModels?: {
-    id: string;
-    version: string;
-    name: string;
-    status: ReplicateStatus; // Using the corrected type here
-  }[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -62,6 +57,7 @@ export class User extends Model<UserAttributes> implements UserAttributes {
   public role!: "user" | "admin";
   public isBlocked!: boolean;
   public verified!: boolean;
+  public telegramId?: string;
   public otp?: string;
   public otpExpires?: Date;
   public passwordResetToken?: string;
@@ -120,7 +116,7 @@ User.init(
     },
     username: {
       type: DataTypes.STRING(16),
-      allowNull: true,
+      allowNull: false,
       unique: true,
     },
     email: {
@@ -173,7 +169,11 @@ User.init(
       defaultValue: false,
       allowNull: false,
     },
-
+    telegramId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
+    },
     otp: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -189,11 +189,6 @@ User.init(
     passwordResetTokenExpires: {
       type: DataTypes.DATE,
       allowNull: true,
-    },
-    replicateModels: {
-      type: DataTypes.JSONB,
-      allowNull: true,
-      defaultValue: [],
     },
   },
   {

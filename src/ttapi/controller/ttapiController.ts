@@ -8,19 +8,29 @@ import { deductTokensForGeneration } from "../../../shared/utils/userActions";
 // --- Models CRUD ---
 
 export const createModel = async (req: Request, res: Response) => {
-    const { name, description } = req.body;
+    const { name, description, instruction } = req.body;
     const files = req.files as Express.Multer.File[];
     const userId = req.user.id;
 
-    if (!files || files.length !== 4) {
-        return apiResponse.badRequest(res, "Exactly 4 images are required.");
+    if (!files || files.length === 0) {
+        return apiResponse.badRequest(res, "At least 1 image is required.");
     }
     if (!name) {
         return apiResponse.badRequest(res, "Model name is required.");
     }
 
-    const model = await ttapiService.createTtModel(userId, name, description, files);
+    const model = await ttapiService.createTtModel(userId, name, description, instruction, files);
     apiResponse.success(res, model, "Model created successfully.", 201);
+};
+
+export const updateModel = async (req: Request, res: Response) => {
+    const { modelId } = req.params;
+    const { name, description, instruction } = req.body;
+    const files = req.files as Express.Multer.File[];
+    const userId = req.user.id;
+
+    const model = await ttapiService.updateTtModel(userId, modelId as string, { name, description, instruction }, files);
+    apiResponse.success(res, model, "Model updated successfully.");
 };
 
 export const getModels = async (req: Request, res: Response) => {
@@ -41,7 +51,6 @@ export const getModel = async (req: Request, res: Response) => {
     const userId = req.user.id;
 
     const model = await ttapiService.getTtModelById(userId, modelId);
-
     if (!model) {
         return apiResponse.notFound(res, "Model not found");
     }
@@ -51,9 +60,6 @@ export const getModel = async (req: Request, res: Response) => {
 
 // --- Generation ---
 
-// ... imports
-
-// Update generate function
 export const generate = async (req: Request, res: Response) => {
     const { prompt, modelId, publish, width, height, seed, safety_tolerance } = req.body;
     const userId = req.user.id;
@@ -68,7 +74,6 @@ export const generate = async (req: Request, res: Response) => {
     try {
         await deductTokensForGeneration(userId, "image", t);
 
-        // Передаем новые параметры
         const result = await ttapiService.generateImage(userId, prompt, modelId, {
             width,
             height,
@@ -76,7 +81,7 @@ export const generate = async (req: Request, res: Response) => {
             safety_tolerance
         });
 
-        const taskId = result?.data?.jobId; // Исходя из структуры ответа 200 response
+        const taskId = result?.data?.jobId;
 
         if (!taskId) {
             throw new Error("Failed to retrieve Job ID from TTAPI");
