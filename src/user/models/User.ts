@@ -111,23 +111,22 @@ User.init(
       primaryKey: true,
     },
     fullname: {
-      type: DataTypes.STRING(32),
+      type: DataTypes.STRING(128),
       allowNull: true,
     },
     username: {
-      type: DataTypes.STRING(16),
+      type: DataTypes.STRING(32),
       allowNull: false,
       unique: true,
     },
     email: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING(128),
       allowNull: false,
-
       unique: true,
       validate: { isEmail: true },
     },
     bio: {
-      type: DataTypes.STRING(72),
+      type: DataTypes.STRING(128),
       allowNull: true,
     },
     password: {
@@ -146,11 +145,10 @@ User.init(
     tokens: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      defaultValue: 500,
+      defaultValue: 50,
     },
     dailyActions: {
       type: DataTypes.JSONB,
-
       allowNull: false,
       defaultValue: { count: 0, lastReset: new Date() },
     },
@@ -194,7 +192,6 @@ User.init(
   {
     sequelize: db,
     modelName: "User",
-
     tableName: "users",
     hooks: {
       beforeCreate: async (user: User) => {
