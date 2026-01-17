@@ -1,56 +1,53 @@
 import crypto from 'crypto';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 export const verifyTelegramWebAppData = (telegramInitData: string): any => {
+  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  
   if (!BOT_TOKEN) {
-    throw new Error("TELEGRAM_BOT_TOKEN is not defined in environment");
-  }
-
-  if (!telegramInitData || typeof telegramInitData !== 'string') {
-    return null;
+    throw new Error("TELEGRAM_BOT_TOKEN is not defined");
   }
 
   const urlParams = new URLSearchParams(telegramInitData);
 
-  const hash = urlParams.get('hash');
-  if (!hash) return null;
+  const receivedHash = urlParams.get('hash');
+  if (!receivedHash) return null;
 
   urlParams.delete('hash');
 
-  const paramsList: string[] = [];
+  // Собираем и сортируем пары key=value
+  const dataPairs: string[] = [];
   urlParams.forEach((value, key) => {
-    if (value.length > 4096) return null;
-    paramsList.push(`${key}=${value}`);
+    dataPairs.push(`${key}=${value}`);
   });
+  dataPairs.sort();
 
-  paramsList.sort((a, b) => a.localeCompare(b));
+  const dataCheckString = dataPairs.join('\n');
 
-  const dataCheckString = paramsList.join('\n');
+  // Для Login Widget — secret это просто SHA256 от bot_token (НЕ HMAC!)
+  const secretKey = crypto.createHash('sha256').update(BOT_TOKEN).digest();
 
-  const secretKey = crypto
-    .createHmac('sha256', 'WebAppData')
-    .update(BOT_TOKEN)
-    .digest();
-
-  const calculatedHash = crypto
+  // Вычисляем HMAC от dataCheckString с этим secret
+  const computedHash = crypto
     .createHmac('sha256', secretKey)
     .update(dataCheckString)
     .digest('hex');
 
-  if (calculatedHash !== hash) {
+  if (computedHash !== receivedHash) {
+    console.log('Hash mismatch!');
+    console.log('Computed: ', computedHash);
+    console.log('Received: ', receivedHash);
+    console.log('Data check string was:\n', dataCheckString);
     return null;
   }
 
+  // Достаём user
   const userStr = urlParams.get('user');
   if (!userStr) return null;
 
   try {
     return JSON.parse(userStr);
-  } catch {
+  } catch (e) {
+    console.error('Failed to parse user JSON', e);
     return null;
   }
 };
