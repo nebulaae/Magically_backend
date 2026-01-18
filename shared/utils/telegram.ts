@@ -1,8 +1,12 @@
 import crypto from 'crypto';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 export const verifyTelegramWebAppData = (telegramInitData: string): any => {
-  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-  
+
   if (!BOT_TOKEN) {
     throw new Error("TELEGRAM_BOT_TOKEN is not defined");
   }
@@ -14,7 +18,6 @@ export const verifyTelegramWebAppData = (telegramInitData: string): any => {
 
   urlParams.delete('hash');
 
-  // Собираем и сортируем пары key=value
   const dataPairs: string[] = [];
   urlParams.forEach((value, key) => {
     dataPairs.push(`${key}=${value}`);
@@ -23,10 +26,8 @@ export const verifyTelegramWebAppData = (telegramInitData: string): any => {
 
   const dataCheckString = dataPairs.join('\n');
 
-  // Для Login Widget — secret это просто SHA256 от bot_token (НЕ HMAC!)
   const secretKey = crypto.createHash('sha256').update(BOT_TOKEN).digest();
 
-  // Вычисляем HMAC от dataCheckString с этим secret
   const computedHash = crypto
     .createHmac('sha256', secretKey)
     .update(dataCheckString)
@@ -51,3 +52,26 @@ export const verifyTelegramWebAppData = (telegramInitData: string): any => {
     return null;
   }
 };
+
+export const verifyTelegramLoginWidget = (data: any) => {
+  const { hash, ...rest } = data;
+
+  const dataCheckString = Object.keys(rest)
+    .sort()
+    .map(key => `${key}=${rest[key]}`)
+    .join("\n");
+
+  const secret = crypto
+    .createHash("sha256")
+    .update(BOT_TOKEN)
+    .digest();
+
+  const computedHash = crypto
+    .createHmac("sha256", secret)
+    .update(dataCheckString)
+    .digest("hex");
+
+  if (computedHash !== hash) return null;
+
+  return rest;
+}

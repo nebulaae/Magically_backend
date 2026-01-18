@@ -12,7 +12,15 @@ router.post("/register-step-2", asyncHandler(authController.registerStep2));
 router.post("/register-step-3", asyncHandler(authController.registerStep3));
 
 // Telegram auth
-router.post("/telegram", asyncHandler(authController.telegramAuth));
+router.post(
+  "/telegram/webapp",
+  asyncHandler(authController.telegramWebAppAuth)
+);
+
+router.post(
+  "/telegram/widget",
+  asyncHandler(authController.telegramWidgetAuth)
+);
 
 // Login user
 router.post("/login", asyncHandler(authController.login));
