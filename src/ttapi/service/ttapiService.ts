@@ -4,6 +4,7 @@ import axios from "axios";
 import logger from "../../../shared/utils/logger";
 import { v4 as uuidv4 } from "uuid";
 import { Transaction } from "sequelize";
+import { fromPublic, publicDir } from "../../../shared/utils/paths";
 import * as ttapiRepository from "../repository/ttapiRepository";
 
 const TTAPI_KEY = process.env.TTAPI_KEY;
@@ -39,7 +40,7 @@ export const updateTtModel = async (userId: string, modelId: string, data: { nam
 
     if (files && files.length > 0) {
         model.imagePaths.forEach(p => {
-            const fullPath = path.join(__dirname, "../../../public", p);
+            const fullPath = fromPublic(p);
             if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
         });
         model.imagePaths = files.map(f => `/ai/ttapi/${f.filename}`);
@@ -62,7 +63,7 @@ export const deleteTtModel = async (userId: string, modelId: string) => {
     if (model.userId !== userId) throw new Error("Access denied");
 
     model.imagePaths.forEach(relativePath => {
-        const fullPath = path.join(__dirname, "../../../public", relativePath);
+        const fullPath = fromPublic(relativePath);
         if (fs.existsSync(fullPath)) {
             fs.unlinkSync(fullPath);
         }
@@ -150,7 +151,8 @@ export const getStatus = async (jobId: string) => {
 };
 
 const downloadImage = async (imageUrl: string): Promise<string> => {
-    const imageDir = path.join(__dirname, "../../../public/images/ttapi");
+    const imageDir = publicDir("images", "ttapi");
+
     if (!fs.existsSync(imageDir)) {
         fs.mkdirSync(imageDir, { recursive: true });
     }

@@ -5,8 +5,9 @@ import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
 import { Transaction } from "sequelize";
 import { logger } from "../../../shared/utils/logger";
-import * as fluxRepository from "../repository/fluxRepository";
 import { FluxModel } from "../models/FluxModel";
+import { fromPublic, publicDir } from "../../../shared/utils/paths";
+import * as fluxRepository from "../repository/fluxRepository";
 
 dotenv.config();
 
@@ -42,10 +43,9 @@ export const updateFluxModel = async (
     const model = await FluxModel.findByPk(modelId);
     if (!model) throw new Error("Flux Model not found");
     if (model.userId !== userId) throw new Error("Access denied");
-
     if (files && files.length > 0) {
         model.imagePaths.forEach((relativePath) => {
-            const fullPath = path.join(__dirname, "../../../public", relativePath);
+            const fullPath = fromPublic(relativePath);
             if (fs.existsSync(fullPath)) {
                 fs.unlinkSync(fullPath);
             }
@@ -67,7 +67,7 @@ export const deleteFluxModel = async (userId: string, modelId: string) => {
 
     // Удаляем файлы
     model.imagePaths.forEach((relativePath) => {
-        const fullPath = path.join(__dirname, "../../../public", relativePath);
+        const fullPath = fromPublic(relativePath);
         if (fs.existsSync(fullPath)) {
             fs.unlinkSync(fullPath);
         }
@@ -147,9 +147,8 @@ export const getFluxImageStatus = async (taskId: string) => {
     }
 };
 
-// ... (функции downloadImage и processFinalImage остаются как были) ...
 const downloadImage = async (imageUrl: string): Promise<string> => {
-    const imageDir = path.join(__dirname, `../../../public/images/flux`);
+    const imageDir = publicDir("images", "flux");
     if (!fs.existsSync(imageDir)) {
         fs.mkdirSync(imageDir, { recursive: true });
     }

@@ -1,5 +1,4 @@
 import fs from "fs";
-import http from "http";
 import path from "path";
 import axios from "axios";
 import dotenv from "dotenv";
@@ -7,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Transaction } from "sequelize";
 import { logger } from "../../../shared/utils/logger";
 import * as gptRepository from "../repository/gptRepository";
+import { publicDir } from "../../../shared/utils/paths";
 
 dotenv.config()
 
@@ -39,10 +39,8 @@ const downloadImage = async (
   imageUrl: string,
   destinationDir: "gpt" | "fal",
 ): Promise<string> => {
-  const imageDir = path.join(
-    __dirname,
-    `../../../public/images/${destinationDir}`,
-  );
+  const imageDir = publicDir("images", destinationDir);
+
   if (!fs.existsSync(imageDir)) {
     fs.mkdirSync(imageDir, { recursive: true });
   }

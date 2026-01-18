@@ -10,6 +10,7 @@ import logger from "../shared/utils/logger";
 import promBundle from "express-prom-bundle";
 
 import { pinoHttp } from "pino-http";
+import { PUBLIC_ROOT } from "../shared/utils/paths";
 import { Server as SocketIOServer } from "socket.io";
 import { createAdmin } from "../shared/scripts/createAdmin";
 import { startJobPoller } from "../shared/workers/jobPoller";
@@ -61,7 +62,7 @@ app.use(express.json());
 app.use(metricsMiddleware);
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/v1/", mainRouter);
-app.use(express.static(path.join(__dirname, "../../public")));
+app.use(express.static(PUBLIC_ROOT));
 app.use(
   pinoHttp({
     logger,

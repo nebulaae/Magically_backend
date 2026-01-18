@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import logger from "../../../shared/utils/logger";
 import { v4 as uuidv4 } from "uuid";
 import { Transaction } from "sequelize";
+import { publicDir } from "../../../shared/utils/paths";
 import * as klingRepository from "../repository/klingRepository";
 
 dotenv.config();
@@ -66,7 +67,7 @@ export const getKlingVideoStatus = async (taskId: string) => {
 };
 
 const downloadKlingVideo = async (videoUrl: string): Promise<string> => {
-  const videoDir = path.join(__dirname, "../../../public/videos/kling");
+  const videoDir = publicDir("videos", "kling");
   if (!fs.existsSync(videoDir)) fs.mkdirSync(videoDir, { recursive: true });
 
   const filename = `${uuidv4()}.mp4`;

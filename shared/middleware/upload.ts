@@ -2,16 +2,17 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import { Request } from "express";
+import { publicDir } from "../utils/paths";
 
 // Define the destinations for directories
-export const gptDir = path.join(__dirname, "../../public/ai/gpt");
-export const nanoDir = path.join(__dirname, "../../public/ai/nano");
-export const fluxDir = path.join(__dirname, "../../public/ai/flux");
-export const klingDir = path.join(__dirname, "../../public/ai/kling");
-export const ttapiDir = path.join(__dirname, "../../public/ai/ttapi");
-export const avatarDir = path.join(__dirname, "../../public/users/avatars");
-export const higgsfieldDir = path.join(__dirname, "../../public/ai/higgsfield");
-export const publicationDir = path.join(__dirname, "../../public/publications");
+export const gptDir = publicDir("ai", "gpt");
+export const nanoDir = publicDir("ai", "nano");
+export const fluxDir = publicDir("ai", "flux");
+export const klingDir = publicDir("ai", "kling");
+export const ttapiDir = publicDir("ai", "ttapi");
+export const avatarDir = publicDir("users", "avatars");
+export const higgsfieldDir = publicDir("ai", "higgsfield");
+export const publicationDir = publicDir("publications");
 
 // Ensure directories exist
 [
