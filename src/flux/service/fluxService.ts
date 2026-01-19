@@ -116,13 +116,7 @@ export const generateFluxImage = async (
     };
 
     try {
-        logger.info(`FLUX PAYLOAD: ${
-            {
-  modelId,
-  imageUrls,
-  imageCount: imageUrls.length,
-}}`);
-
+        logger.info(`Starting Flux generation with payload: ${JSON.stringify(payload, null, 2)}`);
 
         const response = await axios.post(`${BASE_URL}/generate`, payload, {
             headers: {

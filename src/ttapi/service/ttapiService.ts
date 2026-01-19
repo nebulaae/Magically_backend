@@ -11,7 +11,7 @@ const TTAPI_KEY = process.env.TTAPI_KEY;
 const TTAPI_URL = "https://api.ttapi.org";
 const BACKEND_URL = process.env.BACKEND_URL;
 
-export interface FluxGenerateOptions {
+export interface TtGenerateOptions {
     width?: number;
     height?: number;
     seed?: number;
@@ -19,7 +19,13 @@ export interface FluxGenerateOptions {
     output_format?: string;
 }
 
-export const createTtModel = async (userId: string, name: string, description: string, instruction: string, files: Express.Multer.File[]) => {
+export const createTtModel = async (
+    userId: string,
+    name: string,
+    description: string,
+    instruction: string,
+    files: Express.Multer.File[]
+) => {
     if (files.length === 0) {
         throw new Error("At least one image is required.");
     }
@@ -34,7 +40,12 @@ export const createTtModel = async (userId: string, name: string, description: s
     });
 };
 
-export const updateTtModel = async (userId: string, modelId: string, data: { name?: string, description?: string, instruction?: string }, files?: Express.Multer.File[]) => {
+export const updateTtModel = async (
+    userId: string,
+    modelId: string,
+    data: { name?: string, description?: string, instruction?: string },
+    files?: Express.Multer.File[]
+) => {
     const model = await ttapiRepository.findModelById(modelId);
     if (!model || model.userId !== userId) throw new Error("Access denied or model not found");
 
@@ -86,14 +97,14 @@ export const generateImage = async (
     userId: string,
     prompt: string,
     modelId: string,
-    options: FluxGenerateOptions = {}
+    options: TtGenerateOptions = {}
 ) => {
     const model = await ttapiRepository.findModelById(modelId);
     if (!model) throw new Error("Model not found");
 
     const inputImages = model.imagePaths.map(p => `${BACKEND_URL}${p}`);
 
-    // ДОБАВЛЕНИЕ ИНСТРУКЦИИ
+    // Добавление инструкции
     const finalPrompt = model.instruction
         ? `${model.instruction}. ${prompt}`
         : prompt;
@@ -118,7 +129,7 @@ export const generateImage = async (
     Object.keys(requestBody).forEach(key => requestBody[key] === undefined && delete requestBody[key]);
 
     try {
-        const response = await axios.post(`${TTAPI_URL}/bfl/v1/flux-2-max`, requestBody, {
+        const response = await axios.post(`${TTAPI_URL}/bfl/v1/flux-2-pro`, requestBody, {
             headers: {
                 "TT-API-KEY": String(TTAPI_KEY),
                 "Content-Type": "application/json"
@@ -190,14 +201,14 @@ export const processFinalImage = async (
             userId,
             content: prompt || "Magic photo",
             imageUrl: localImagePath,
-            category: "flux-2-pro",
+            category: "ttapi",
         }, t);
     } else {
         return ttapiRepository.createGalleryItem({
             userId,
             prompt: prompt || "Magic photo",
             imageUrl: localImagePath,
-            generationType: "image-flux-2",
+            generationType: "image-ttapi",
         }, t);
     }
 };

@@ -44,15 +44,18 @@ TtModel.init(
             type: DataTypes.TEXT,
             allowNull: true,
         },
+        instruction: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
         imagePaths: {
             type: DataTypes.JSONB,
             allowNull: false,
             defaultValue: [],
             validate: {
-                // Валидация на уровне модели, хотя Multer и контроллер это проверяют
-                isArrayOf4(value: string[]) {
-                    if (!Array.isArray(value) || value.length !== 4) {
-                        throw new Error('A model requires exactly 4 images.');
+                isArrayValidator(value: string[]) {
+                    if (!Array.isArray(value)) {
+                        throw new Error('imagePaths must be an array');
                     }
                 }
             }
