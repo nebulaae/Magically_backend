@@ -7,6 +7,8 @@ import {
   verifyTelegramLoginWidget,
 } from "../../../shared/utils/telegram";
 
+const isProd = process.env.NODE_ENV === "production";
+
 export const registerStep1 = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
@@ -50,9 +52,11 @@ export const registerStep3 = async (req: Request, res: Response) => {
       password,
     );
 
+
     res.cookie("token", result.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
 
@@ -77,10 +81,11 @@ export const telegramWebAppAuth = async (req: Request, res: Response) => {
 
     const result = await authService.telegramLogin(tgUser);
 
+
     res.cookie("token", result.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
 
@@ -100,10 +105,11 @@ export const telegramWidgetAuth = async (req: Request, res: Response) => {
 
     const result = await authService.telegramLogin(tgUser);
 
+
     res.cookie("token", result.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
 
@@ -118,11 +124,14 @@ export const login = async (req: Request, res: Response) => {
     const { usernameOrEmail, password } = req.body;
     const result = await authService.login(usernameOrEmail, password);
 
+
     res.cookie("token", result.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
+
     apiResponse.success(res, result, "Login successful.");
   } catch (error) {
     logger.error(`Login error: ${error.message}`);

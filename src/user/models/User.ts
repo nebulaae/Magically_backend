@@ -116,7 +116,7 @@ User.init(
     },
     username: {
       type: DataTypes.STRING(32),
-      allowNull: false,
+      allowNull: true,
       unique: true,
     },
     email: {
