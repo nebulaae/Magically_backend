@@ -119,7 +119,7 @@ export const telegramLogin = async (telegramUser: any) => {
     user = await User.create({
       fullname: fullname || 'Telegram User',
       username: finalUsername,
-      email: `tg_${telegramUser.id}@volshebny.bot`,
+      email: `tg_${telegramUser.id}@volshebny.by`,
       telegramId: String(telegramUser.id),
       verified: true,
       role: 'user',
