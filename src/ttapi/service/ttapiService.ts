@@ -8,7 +8,7 @@ import { fromPublic, publicDir } from "../../../shared/utils/paths";
 import * as ttapiRepository from "../repository/ttapiRepository";
 
 const TTAPI_KEY = process.env.TTAPI_KEY;
-const TTAPI_URL = "https://api.ttapi.org";
+const TTAPI_URL = "https://api.ttapi.io";
 const BACKEND_URL = process.env.BACKEND_URL;
 
 export interface TtGenerateOptions {
@@ -129,7 +129,7 @@ export const generateImage = async (
     Object.keys(requestBody).forEach(key => requestBody[key] === undefined && delete requestBody[key]);
 
     try {
-        const response = await axios.post(`${TTAPI_URL}/bfl/v1/flux-2-pro`, requestBody, {
+        const response = await axios.post(`${TTAPI_URL}/bfl/v1/flux-2-max`, requestBody, {
             headers: {
                 "TT-API-KEY": String(TTAPI_KEY),
                 "Content-Type": "application/json"
