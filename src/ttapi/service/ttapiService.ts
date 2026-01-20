@@ -8,7 +8,7 @@ import { fromPublic, publicDir } from "../../../shared/utils/paths";
 import * as ttapiRepository from "../repository/ttapiRepository";
 
 const TTAPI_KEY = process.env.TTAPI_KEY;
-const TTAPI_URL = "https://api.ttapi.io";
+const TTAPI_URL = "https://api.ttapi.org";
 const BACKEND_URL = process.env.BACKEND_URL;
 
 export interface TtGenerateOptions {
