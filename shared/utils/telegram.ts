@@ -5,50 +5,52 @@ dotenv.config();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
-export const verifyTelegramWebAppData = (telegramInitData: string): any => {
-
+export const verifyTelegramWebAppData = (initData: string) => {
   if (!BOT_TOKEN) {
     throw new Error("TELEGRAM_BOT_TOKEN is not defined");
   }
 
-  const urlParams = new URLSearchParams(telegramInitData);
+  // ⚠️ ВАЖНО: парсим как есть
+  const params = new URLSearchParams(initData);
 
-  const receivedHash = urlParams.get('hash');
-  if (!receivedHash) return null;
+  const hash = params.get("hash");
+  if (!hash) return null;
 
-  urlParams.delete('hash');
+  params.delete("hash");
 
-  const dataPairs: string[] = [];
-  urlParams.forEach((value, key) => {
-    dataPairs.push(`${key}=${value}`);
+  const dataCheckArr: string[] = [];
+
+  // ⚠️ Telegram требует DECODED значения
+  params.forEach((value, key) => {
+    dataCheckArr.push(`${key}=${value}`);
   });
-  dataPairs.sort();
 
-  const dataCheckString = dataPairs.join('\n');
+  dataCheckArr.sort();
 
-  const secretKey = crypto.createHash('sha256').update(BOT_TOKEN).digest();
+  const dataCheckString = dataCheckArr.join("\n");
+
+  const secretKey = crypto
+    .createHash("sha256")
+    .update(BOT_TOKEN)
+    .digest();
 
   const computedHash = crypto
-    .createHmac('sha256', secretKey)
+    .createHmac("sha256", secretKey)
     .update(dataCheckString)
-    .digest('hex');
+    .digest("hex");
 
-  if (computedHash !== receivedHash) {
-    console.log('Hash mismatch!');
-    console.log('Computed: ', computedHash);
-    console.log('Received: ', receivedHash);
-    console.log('Data check string was:\n', dataCheckString);
+  if (computedHash !== hash) {
+    console.error("Telegram hash mismatch");
+    console.error({ dataCheckString, computedHash, hash });
     return null;
   }
 
-  // Достаём user
-  const userStr = urlParams.get('user');
-  if (!userStr) return null;
+  const userRaw = params.get("user");
+  if (!userRaw) return null;
 
   try {
-    return JSON.parse(userStr);
-  } catch (e) {
-    console.error('Failed to parse user JSON', e);
+    return JSON.parse(userRaw);
+  } catch {
     return null;
   }
 };
