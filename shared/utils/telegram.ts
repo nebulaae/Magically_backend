@@ -5,52 +5,71 @@ dotenv.config();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
-export const verifyTelegramWebAppData = (initData: string) => {
-  if (!BOT_TOKEN) {
-    throw new Error("TELEGRAM_BOT_TOKEN is not defined");
+export const verifyTelegramWebAppData = (initDataRaw: string): any => {
+  const pairs = initDataRaw.split("&");
+  let hash = "";
+  const data: string[] = [];
+  let userRaw = "";
+
+  for (const pair of pairs) {
+    const idx = pair.indexOf("=");
+    if (idx === -1) continue;
+
+    const key = pair.slice(0, idx);
+    const value = pair.slice(idx + 1);
+
+    if (key === "hash") {
+      hash = value;
+      continue;
+    }
+
+    if (key === "signature") {
+      continue;
+    }
+
+    // ⚠️ Сохраняем RAW значение (без decode!)
+    data.push(`${key}=${value}`);
+
+    if (key === "user") {
+      userRaw = value;
+    }
   }
 
-  // ⚠️ ВАЖНО: парсим как есть
-  const params = new URLSearchParams(initData);
+  data.sort();
+  const dataCheckString = data.join("\n");
 
-  const hash = params.get("hash");
-  if (!hash) return null;
-
-  params.delete("hash");
-
-  const dataCheckArr: string[] = [];
-
-  // ⚠️ Telegram требует DECODED значения
-  params.forEach((value, key) => {
-    dataCheckArr.push(`${key}=${value}`);
-  });
-
-  dataCheckArr.sort();
-
-  const dataCheckString = dataCheckArr.join("\n");
-
+  // ШАГ 1: secret = HMAC_SHA256("WebAppData", BOT_TOKEN)
   const secretKey = crypto
-    .createHash("sha256")
-    .update(BOT_TOKEN)
+    .createHmac("sha256", "WebAppData")
+    .update(BOT_TOKEN!)
     .digest();
 
+  // ШАГ 2: финальный хеш
   const computedHash = crypto
     .createHmac("sha256", secretKey)
     .update(dataCheckString)
     .digest("hex");
 
+  console.log("=== DEBUG ===");
+  console.log("Data check string:");
+  console.log(dataCheckString);
+  console.log("\nComputed hash:", computedHash);
+  console.log("Received hash:", hash);
+  console.log("Match:", computedHash === hash);
+
   if (computedHash !== hash) {
-    console.error("Telegram hash mismatch");
-    console.error({ dataCheckString, computedHash, hash });
     return null;
   }
 
-  const userRaw = params.get("user");
-  if (!userRaw) return null;
-
+  // Парсим user (теперь с decode)
   try {
-    return JSON.parse(userRaw);
-  } catch {
+    if (userRaw) {
+      const decoded = decodeURIComponent(userRaw);
+      return JSON.parse(decoded);
+    }
+    return null;
+  } catch (error) {
+    console.error("Failed to parse user data:", error);
     return null;
   }
 };
