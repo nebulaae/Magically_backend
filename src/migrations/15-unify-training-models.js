@@ -26,8 +26,8 @@ module.exports = {
         await queryInterface.addIndex('training_models', ['userId']);
 
         // 2. Удаляем старые таблицы (Осторожно: в проде сначала сделайте бэкап данных!)
-        await queryInterface.dropTable('flux_models');
-        await queryInterface.dropTable('tt_models');
+        // await queryInterface.dropTable('flux_models');
+        // await queryInterface.dropTable('tt_models');
     },
 
     async down(queryInterface, Sequelize) {
