@@ -1,7 +1,9 @@
 import express from "express";
+import passport from "passport";
 import * as authController from "./controller/authController";
 
 import { auth } from "../../shared/middleware/auth";
+import { generateToken } from "../../shared/utils/jwt";
 import { asyncHandler } from "../../shared/utils/asyncHandler";
 
 const router = express.Router();
@@ -36,6 +38,35 @@ router.post("/forgot-password", asyncHandler(authController.forgotPassword));
 router.post(
   "/reset-password/:token",
   asyncHandler(authController.resetPassword),
+);
+
+router.get(
+  "/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    session: false,
+  })
+);
+
+router.get(
+  "/google/callback",
+  passport.authenticate("google", {
+    session: false,
+    failureRedirect: "/login",
+  }),
+  (req, res) => {
+    const user = req.user as any;
+    const token = generateToken(user.id);
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      maxAge: 365 * 24 * 60 * 60 * 1000,
+    });
+
+    res.redirect(process.env.FRONTEND_URL!);
+  }
 );
 
 export default router;

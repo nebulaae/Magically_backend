@@ -1,6 +1,7 @@
 import express from "express";
 import swaggerUi from "swagger-ui-express";
 
+import aiRoutes from "./ai/ai";
 import gptRoutes from "./gpt/gpt";
 import nanoRoutes from "./nano/nano";
 import authRoutes from "./auth/auth";
@@ -30,6 +31,7 @@ router.get("/health", (req, res) => {
 router.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDefinition));
 
 // Functional Routes
+router.use("/ai", aiRoutes);
 router.use("/job", jobRoutes);
 router.use("/gpt", gptRoutes);
 router.use("/nano", nanoRoutes);

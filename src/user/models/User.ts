@@ -31,6 +31,7 @@ export interface UserAttributes {
   isBlocked: boolean;
   verified: boolean;
   telegramId?: string;
+  googleId?: string;
   otp?: string;
   otpExpires?: Date;
   passwordResetToken?: string;
@@ -58,6 +59,7 @@ export class User extends Model<UserAttributes> implements UserAttributes {
   public isBlocked!: boolean;
   public verified!: boolean;
   public telegramId?: string;
+  public googleId?: string;
   public otp?: string;
   public otpExpires?: Date;
   public passwordResetToken?: string;
@@ -168,6 +170,11 @@ User.init(
       allowNull: false,
     },
     telegramId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
+    },
+    googleId: {
       type: DataTypes.STRING,
       allowNull: true,
       unique: true,

@@ -10,6 +10,7 @@ export const nanoDir = publicDir("ai", "nano");
 export const fluxDir = publicDir("ai", "flux");
 export const klingDir = publicDir("ai", "kling");
 export const ttapiDir = publicDir("ai", "ttapi");
+export const aiModelsDir = publicDir("ai", "models");
 export const avatarDir = publicDir("users", "avatars");
 export const higgsfieldDir = publicDir("ai", "higgsfield");
 export const publicationDir = publicDir("publications");
@@ -22,6 +23,7 @@ export const publicationDir = publicDir("publications");
   klingDir,
   ttapiDir,
   avatarDir,
+  aiModelsDir,
   higgsfieldDir,
   publicationDir,
 ].forEach((dir) => {
@@ -36,7 +38,7 @@ const fileFilter = (
   file: Express.Multer.File,
   cb: multer.FileFilterCallback,
 ) => {
-  const allowedTypes = /jpeg|jpg|png|gif/;
+  const allowedTypes = /jpeg|jpg|png|gif|heic|heif/;
   const mimetype = allowedTypes.test(file.mimetype);
   const extname = allowedTypes.test(
     path.extname(file.originalname).toLowerCase(),
@@ -147,7 +149,6 @@ export const uploadHiggsfieldImage = multer({
   fileFilter: fileFilter,
 }).array("higgsfieldImage", 2);
 
-// Storage for TTAPI Models (Flux2Pro)
 export const uploadTtapiModelImages = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
@@ -209,3 +210,19 @@ export const uploadGptImages = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
   fileFilter: fileFilter,
 }).single("gptImages");
+
+export const uploadAIModelImages = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, aiModelsDir);
+    },
+    filename: (req: Request, file, cb) => {
+      const userId = req.user.id;
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const extension = path.extname(file.originalname);
+      cb(null, `ai-model-${userId}-${uniqueSuffix}${extension}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: fileFilter,
+}).array("modelImages", 8);

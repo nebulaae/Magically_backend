@@ -3,11 +3,13 @@ import path from "path";
 import http from "http";
 import dotenv from "dotenv";
 import express from "express";
+import passport from "passport";
 import mainRouter from "./router";
 import cookieParser from "cookie-parser";
 import db from "../shared/config/database";
 import logger from "../shared/utils/logger";
 import promBundle from "express-prom-bundle";
+import "../shared/config/passport";
 
 import { pinoHttp } from "pino-http";
 import { PUBLIC_ROOT } from "../shared/utils/paths";
@@ -57,6 +59,7 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
+app.use(passport.initialize());
 app.use(cookieParser());
 app.use(express.json());
 app.use(metricsMiddleware);

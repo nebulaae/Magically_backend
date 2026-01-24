@@ -8,4 +8,6 @@ const router = express.Router();
 
 router.get("/", auth, asyncHandler(galleryController.getMyGallery));
 
+router.post("/:galleryItemId/publish", auth, asyncHandler(galleryController.publishGalleryItem));
+
 export default router;

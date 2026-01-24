@@ -87,3 +87,31 @@ export const sendPasswordResetEmail = async (to: string, token: string) => {
     logger.error(`Error sending password reset email: ${error.message}`);
   }
 };
+
+const createTransporter = async () => {
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      type: "OAuth2",
+      user: process.env.EMAIL_USER, // ваш gmail
+      clientId: process.env.GMAIL_CLIENT_ID,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET,
+      refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+    },
+  });
+};
+
+export const sendSystemAlert = async (to: string, subject: string, text: string) => {
+  try {
+    const transporter = await createTransporter();
+    await transporter.sendMail({
+      from: `Volshebny Bot <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      text,
+    });
+    logger.info(`Alert sent to ${to}`);
+  } catch (error) {
+    logger.error(`Email error: ${error.message}`);
+  }
+};

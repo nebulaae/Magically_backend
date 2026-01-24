@@ -161,8 +161,8 @@ export const getStatus = async (jobId: string) => {
     }
 };
 
-const downloadImage = async (imageUrl: string): Promise<string> => {
-    const imageDir = publicDir("images", "ttapi");
+export const downloadImage = async (imageUrl: string, pathname: string): Promise<string> => {
+    const imageDir = publicDir("images", pathname);
 
     if (!fs.existsSync(imageDir)) {
         fs.mkdirSync(imageDir, { recursive: true });
@@ -195,7 +195,7 @@ export const processFinalImage = async (
     prompt: string,
     t: Transaction
 ) => {
-    const localImagePath = await downloadImage(imageUrl);
+    const localImagePath = await downloadImage(imageUrl, "ttapi");
     if (publish) {
         return ttapiRepository.createPublication({
             userId,
