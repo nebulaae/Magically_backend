@@ -95,7 +95,6 @@ export const telegramWebAppAuth = async (req: Request, res: Response) => {
   }
 };
 
-
 export const telegramWidgetAuth = async (req: Request, res: Response) => {
   try {
     const tgUser = verifyTelegramLoginWidget(req.body);

@@ -19,6 +19,7 @@ import { startJobPoller } from "../shared/workers/jobPoller";
 import { seedTestData } from "../shared/scripts/seedTestData";
 import { setupAssociations } from "../shared/models/associations";
 import { initializeSocketIO } from "../shared/utils/socketManager";
+import { verifyTelegramWebAppData } from "../shared/utils/telegram";
 
 dotenv.config();
 
@@ -103,6 +104,10 @@ const startServer = async () => {
     // await seedTestData();
     // Admin
     await createAdmin();
+    // Test init data validator
+    const initdata = "query_id=AAFevahKAgAAAF69qErhU833&user=%7B%22id%22%3A5547539806%2C%22first_name%22%3A%22Aim%C3%A9%22%2C%22last_name%22%3A%22%22%2C%22username%22%3A%22somewrld%22%2C%22language_code%22%3A%22ru%22%2C%22allows_write_to_pm%22%3Atrue%2C%22photo_url%22%3A%22https%3A%5C%2F%5C%2Ft.me%5C%2Fi%5C%2Fuserpic%5C%2F320%5C%2Fv3dyeQ-u8bYcCju3QKhxRNYTh9efeZ8I3F8Kz7nDT7zRS8t_CL5xOSslhg68NJkC.svg%22%7D&auth_date=1769285445&signature=55B-HDTbxjevD-DzL0xunWqVAeXntlF-BgxoBJa0qku3WrVMV1lLoTTp1j7uVpSgAm5HSleqeDZp8F4R89JWBg&hash=8e868e222748a6fd11fa96017167d2d785934955ebdc1a27f276135eb8e73f95";
+
+    await verifyTelegramWebAppData(initdata);
 
     server.listen(PORT, () => {
       logger.info(`Server successfully started and running on port ${PORT}`);

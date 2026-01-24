@@ -88,49 +88,72 @@ export const registerStep3 = async (
 };
 
 export const telegramLogin = async (telegramUser: any) => {
-  let user = await User.findOne({ where: { telegramId: String(telegramUser.id) } });
+  const telegramId = String(telegramUser.id);
 
-  if (!user) {
-    if (telegramUser.username) {
-      user = await User.findOne({ where: { username: telegramUser.username } });
-      if (user) {
-        user.telegramId = String(telegramUser.id);
-        await user.save();
-        const token = generateToken(user.id);
-        const { password: _, ...userResponse } = user.get({ plain: true });
-        return { token, user: userResponse };
-      }
-    }
+  let user = await User.findOne({
+    where: { telegramId },
+  });
 
-    let baseUsername = telegramUser.username || `tg_${telegramUser.id}`;
-    baseUsername = baseUsername.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 28);
-
-    let finalUsername = baseUsername;
-    let counter = 1;
-    while (await User.findOne({ where: { username: finalUsername } })) {
-      finalUsername = `${baseUsername}_${counter}`;
-      counter++;
-      if (counter > 100) throw new Error("Cannot generate unique username");
-    }
-
-    let fullname = `${telegramUser.first_name || ''} ${telegramUser.last_name || ''}`.trim();
-    fullname = fullname.slice(0, 120);
-
-    user = await User.create({
-      fullname: fullname || 'Telegram User',
-      username: finalUsername,
-      email: `tg_${telegramUser.id}@volshebny.by`,
-      telegramId: String(telegramUser.id),
-      verified: true,
-      role: 'user',
-      tokens: 50,
-      dailyActions: { count: 0, lastReset: new Date() },
-      password: null,
-    });
+  // 1️⃣ Уже есть привязка к Telegram
+  if (user) {
+    const token = generateToken(user.id);
+    const { password: _, ...userResponse } = user.get({ plain: true });
+    return { token, user: userResponse };
   }
+
+  // 2️⃣ Пробуем привязать по username (если есть)
+  if (telegramUser.username) {
+    user = await User.findOne({
+      where: { username: telegramUser.username },
+    });
+
+    if (user && !user.telegramId) {
+      user.telegramId = telegramId;
+      user.verified = true;
+      await user.save();
+
+      const token = generateToken(user.id);
+      const { password: _, ...userResponse } = user.get({ plain: true });
+      return { token, user: userResponse };
+    }
+  }
+
+  // 3️⃣ Создаём нового пользователя
+  let baseUsername =
+    telegramUser.username || `tg_${telegramId}`;
+
+  baseUsername = baseUsername
+    .replace(/[^a-zA-Z0-9_]/g, "_")
+    .slice(0, 28);
+
+  let finalUsername = baseUsername;
+  let counter = 1;
+
+  while (await User.findOne({ where: { username: finalUsername } })) {
+    finalUsername = `${baseUsername}_${counter++}`;
+    if (counter > 100) {
+      throw new Error("Cannot generate unique username");
+    }
+  }
+
+  const fullname = `${telegramUser.first_name || ""} ${telegramUser.last_name || ""
+    }`.trim().slice(0, 120);
+
+  user = await User.create({
+    fullname: fullname || "Telegram User",
+    username: finalUsername,
+    email: `tg_${telegramId}@telegram.local`,
+    telegramId,
+    verified: true,
+    role: "user",
+    tokens: 50,
+    dailyActions: { count: 0, lastReset: new Date() },
+    password: null,
+  });
 
   const token = generateToken(user.id);
   const { password: _, ...userResponse } = user.get({ plain: true });
+
   return { token, user: userResponse };
 };
 

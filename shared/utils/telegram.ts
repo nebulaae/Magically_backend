@@ -6,22 +6,35 @@ dotenv.config();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
-export const verifyTelegramWebAppData = (initDataRaw: string): any => {
-  const urlParams = new URLSearchParams(initDataRaw);
-  const hash = urlParams.get("hash");
-  urlParams.delete("hash");
+export const verifyTelegramWebAppData = (initDataRaw: string) => {
+  const params = new URLSearchParams(initDataRaw);
 
-  // Сортировка ключей в алфавитном порядке
-  const restKeys = Array.from(urlParams.keys()).sort();
+  const hash = params.get("hash");
+  if (!hash) return null;
 
-  // Формирование строки проверки (key=value\n)
-  const dataCheckString = restKeys
-    .map((key) => `${key}=${urlParams.get(key)}`)
-    .join("\n");
+  const authDate = Number(params.get("auth_date"));
+  const now = Math.floor(Date.now() / 1000);
 
+  if (Math.abs(now - authDate) > 300) {
+    console.log("InitData outdated");
+    return null;
+  }
+
+  // формируем data_check_string
+  const data: string[] = [];
+
+  params.forEach((value, key) => {
+    if (key === "hash") return;
+    data.push(`${key}=${value}`);
+  });
+
+  data.sort();
+  const dataCheckString = data.join("\n");
+
+  // secret_key = HMAC_SHA256(bot_token, "WebAppData")
   const secretKey = crypto
     .createHmac("sha256", "WebAppData")
-    .update(process.env.TELEGRAM_BOT_TOKEN!)
+    .update(BOT_TOKEN)
     .digest();
 
   const computedHash = crypto
@@ -30,16 +43,18 @@ export const verifyTelegramWebAppData = (initDataRaw: string): any => {
     .digest("hex");
 
   if (computedHash !== hash) {
-    logger.warn(`TG Hash mismatch. Computed: ${computedHash}, Received: ${hash}`);
+    console.log("Hash mismatch");
     return null;
   }
 
-  // Парсинг пользователя
-  const userStr = urlParams.get("user");
-  if (userStr) {
-    return JSON.parse(userStr);
-  }
-  return null;
+  // parse user
+  const userRaw = params.get("user");
+  if (!userRaw) return null;
+
+  console.log("Telegram WebApp VALIDATED");
+  console.log("User:", userRaw);
+
+  return JSON.parse(decodeURIComponent(userRaw));
 };
 
 export const verifyTelegramLoginWidget = (data: any) => {
