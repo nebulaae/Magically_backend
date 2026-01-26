@@ -39,7 +39,7 @@ export const createComment = async (
       t,
     );
     await publication.increment("commentCount", { transaction: t });
-    await handleUserAction(user, 20, t);
+    await handleUserAction(user, 2, t);
   });
 
   await invalidateCache(`comments:publication:${publicationId}`);

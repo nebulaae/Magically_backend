@@ -13,6 +13,7 @@ const UNIFICALLY_URL = "https://api.unifically.com/flux.2-max";
 const TTAPI_KEY = process.env.TTAPI_KEY;
 const TTAPI_URL = "https://api.ttapi.org";
 const BACKEND_URL = process.env.BACKEND_URL;
+const SYSTEM_INSTRUCTIONS = "Photorealistic, studio lighting, non-destructive retouching; flawless, smooth skin without pores and other face defects; no blemishes, freckles, acne, dark spots, wrinkles, shine; subtle makeup-like finish; even complexion; preserved facial features; crisp eyes/lips; natural hair texture; cinematic color grading. Learn from the uploaded photos and create an image.";
 
 export interface GenerateOptions {
     width?: number;
@@ -59,7 +60,6 @@ export const updateModel = async (
     }
 
     if (files && files.length > 0) {
-        // Удаляем старые файлы
         model.imagePaths.forEach((p) => {
             const fullPath = fromPublic(p);
             if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
@@ -117,13 +117,13 @@ const callUnifically = async (
 ): Promise<GenerationResult> => {
     try {
         const payload = {
-            prompt,
+            prompt: SYSTEM_INSTRUCTIONS + prompt,
             image_urls: imageUrls,
             aspect_ratio: options.aspect_ratio || "1:1",
             quality: "1K",
         };
 
-        logger.info(`[Unifically] Generating: ${JSON.stringify(payload)}`);
+        logger.info(`[Unifically] Request: ${JSON.stringify(payload)}`);
 
         const response = await axios.post(`${UNIFICALLY_URL}/generate`, payload, {
             headers: {
@@ -133,12 +133,21 @@ const callUnifically = async (
             timeout: 30000,
         });
 
-        const taskId = response.data.task_id || response.data.id;
-        if (!taskId) throw new Error("No task ID from Unifically");
+        logger.info(`[Unifically] Response: ${JSON.stringify(response.data)}`);
 
+        // Unifically возвращает { code: 200, data: { task_id: "..." } }
+        const taskId = response.data?.data?.task_id || response.data?.task_id;
+
+        if (!taskId) {
+            logger.error(`[Unifically] No task_id in response: ${JSON.stringify(response.data)}`);
+            throw new Error("No task ID from Unifically");
+        }
+
+        logger.info(`[Unifically] Success with task_id: ${taskId}`);
         return { provider: "unifically", taskId };
     } catch (error: any) {
-        logger.error(`[Unifically] Failed: ${error.response?.data?.message || error.message}`);
+        const errorMsg = error.response?.data?.message || error.response?.data || error.message;
+        logger.error(`[Unifically] Failed: ${JSON.stringify(errorMsg)}`);
         throw error;
     }
 };
@@ -151,8 +160,7 @@ const callTTAPI = async (
 ): Promise<GenerationResult> => {
     try {
         const requestBody: any = {
-            prompt,
-            model: "flux-2-max",
+            prompt: SYSTEM_INSTRUCTIONS + prompt,
             width: options.width || 1024,
             height: options.height || 1024,
             seed: options.seed,
@@ -168,7 +176,7 @@ const callTTAPI = async (
 
         Object.keys(requestBody).forEach((key) => requestBody[key] === undefined && delete requestBody[key]);
 
-        logger.info(`[TTAPI] Generating: ${JSON.stringify(requestBody)}`);
+        logger.info(`[TTAPI] Request: ${JSON.stringify(requestBody)}`);
 
         const response = await axios.post(`${TTAPI_URL}/bfl/v1/flux-2-max`, requestBody, {
             headers: {
@@ -178,12 +186,21 @@ const callTTAPI = async (
             timeout: 30000,
         });
 
-        const taskId = response.data.jobId;
-        if (!taskId) throw new Error("No jobId from TTAPI");
+        logger.info(`[TTAPI] Response: ${JSON.stringify(response.data)}`);
 
+        // TTAPI возвращает { status: "SUCCESS", data: { jobId: "..." } }
+        const taskId = response.data?.data?.jobId || response.data?.jobId;
+
+        if (!taskId) {
+            logger.error(`[TTAPI] No jobId in response: ${JSON.stringify(response.data)}`);
+            throw new Error("No jobId from TTAPI");
+        }
+
+        logger.info(`[TTAPI] Success with jobId: ${taskId}`);
         return { provider: "ttapi", taskId };
     } catch (error: any) {
-        logger.error(`[TTAPI] Failed: ${error.response?.data?.message || error.message}`);
+        const errorMsg = error.response?.data?.message || error.response?.data || error.message;
+        logger.error(`[TTAPI] Failed: ${JSON.stringify(errorMsg)}`);
         throw error;
     }
 };
@@ -201,17 +218,14 @@ export const generateImage = async (
     const imageUrls = model.imagePaths.map((p) => `${BACKEND_URL}${p}`);
     const finalPrompt = model.instruction ? `${model.instruction}. ${prompt}` : prompt;
 
-    // Парсинг aspect_ratio для TTAPI
     const [width, height] = parseAspectRatio(options.aspect_ratio || "1:1");
 
-    // 1️⃣ Попытка через Unifically
     try {
         logger.info(`[AI Service] Trying Unifically for user ${userId}`);
         return await callUnifically(finalPrompt, imageUrls, options);
     } catch (unificError) {
         logger.warn(`[AI Service] Unifically failed, falling back to TTAPI`);
 
-        // 2️⃣ Fallback на TTAPI
         try {
             return await callTTAPI(finalPrompt, imageUrls, { ...options, width, height });
         } catch (ttapiError) {
@@ -221,20 +235,20 @@ export const generateImage = async (
     }
 };
 
-// ============ Проверка статуса ============
-
 export const checkStatus = async (taskId: string, provider: "unifically" | "ttapi") => {
     if (provider === "unifically") {
         try {
             const response = await axios.get(`${UNIFICALLY_URL}/status/${taskId}`, {
                 headers: { Authorization: `Bearer ${UNIFICALLY_API_KEY}` },
             });
-            return response.data;
+
+            // Unifically возвращает { code: 200, data: { status: "completed", output: { image_url: "..." } } }
+            return response.data?.data || response.data;
         } catch (error) {
+            logger.error(`[Unifically] Status check failed: ${error.message}`);
             return null;
         }
     } else {
-        // TTAPI
         try {
             const response = await axios.post(
                 `${TTAPI_URL}/flux/fetch`,
@@ -246,14 +260,15 @@ export const checkStatus = async (taskId: string, provider: "unifically" | "ttap
                     },
                 }
             );
+
+            // TTAPI возвращает { status: "SUCCESS", data: { imageUrl: "..." } }
             return response.data;
         } catch (error) {
+            logger.error(`[TTAPI] Status check failed: ${error.message}`);
             return null;
         }
     }
 };
-
-// ============ Скачивание и сохранение ============
 
 export const downloadImage = async (imageUrl: string): Promise<string> => {
     const imageDir = publicDir("images", "ai");

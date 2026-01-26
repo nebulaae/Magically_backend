@@ -179,7 +179,7 @@ export const likePublication = async (
         await user.save({ transaction: t });
       }
     }
-    await handleUserAction(user, 10, t);
+    await handleUserAction(user, 1, t);
   });
 
   await invalidateCache("publications:all:*");

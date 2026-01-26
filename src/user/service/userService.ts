@@ -149,7 +149,7 @@ export const subscribe = async (followerId: string, followingId: string) => {
 
   await db.transaction(async (t) => {
     await userRepository.createSubscription(followerId, followingId);
-    await handleUserAction(me, 10, t);
+    await handleUserAction(me, 3, t);
   });
 
   return { message: `Successfully followed ${userToFollow.username}` };

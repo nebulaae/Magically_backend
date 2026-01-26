@@ -147,7 +147,30 @@ const pollJobs = async (io: SocketIOServer) => {
           let resultItem;
 
           if (job.service === "ai") {
-            resultItem = await aiService.processFinalImage(publish, job.userId, externalResultUrl, prompt, t);
+            const provider = job.meta.provider || "unifically";
+            const res = await aiService.checkStatus(job.serviceTaskId, provider);
+            statusData = res;
+
+            if (provider === "unifically") {
+              if (statusData?.status === "completed") {
+                isComplete = true;
+                externalResultUrl =
+                  statusData.output?.image_url ||
+                  statusData.image_url ||
+                  statusData.url;
+              } else if (statusData?.status === "failed") {
+                isFailed = true;
+                errorMessage = statusData.error?.message || "Unifically generation failed";
+              }
+            } else {
+              if (statusData?.status === "SUCCESS" && statusData?.data?.imageUrl) {
+                isComplete = true;
+                externalResultUrl = statusData.data.imageUrl;
+              } else if (statusData?.status === "FAILED") {
+                isFailed = true;
+                errorMessage = statusData.message || statusData.data?.message || "TTAPI generation failed";
+              }
+            }
           } else if (job.service.startsWith("gpt")) {
             resultItem = await processGpt(publish, job.userId, externalResultUrl, prompt, t);
           } else if (job.service.startsWith("nano")) {
