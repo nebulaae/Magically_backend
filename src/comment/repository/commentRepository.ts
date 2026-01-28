@@ -1,12 +1,12 @@
-import { Comment } from "../models/Comment";
-import { Publication } from "../../publication/models/Publication";
-import { User } from "../../user/models/User";
-import { LikedComment } from "../models/LikedComment";
-import { Transaction } from "sequelize";
+import { Comment } from '../models/Comment';
+import { Publication } from '../../publication/models/Publication';
+import { User } from '../../user/models/User';
+import { LikedComment } from '../models/LikedComment';
+import { Transaction } from 'sequelize';
 
 export const createComment = (
   data: Partial<Comment>,
-  transaction: Transaction,
+  transaction: Transaction
 ) => {
   return Comment.create(data, { transaction });
 };
@@ -25,11 +25,11 @@ export const findTopLevelCommentsByPublicationId = (publicationId: string) => {
     include: [
       {
         model: User,
-        as: "author",
-        attributes: ["id", "username", "fullname", "avatar"],
+        as: 'author',
+        attributes: ['id', 'username', 'fullname', 'avatar'],
       },
     ],
-    order: [["createdAt", "ASC"]],
+    order: [['createdAt', 'ASC']],
   });
 };
 
@@ -39,11 +39,11 @@ export const findRepliesByParentId = (parentId: string) => {
     include: [
       {
         model: User,
-        as: "author",
-        attributes: ["id", "username", "fullname", "avatar"],
+        as: 'author',
+        attributes: ['id', 'username', 'fullname', 'avatar'],
       },
     ],
-    order: [["createdAt", "ASC"]],
+    order: [['createdAt', 'ASC']],
   });
 };
 
@@ -70,7 +70,7 @@ export const findUserById = (userId: string) => {
 export const createLikedComment = (
   userId: string,
   commentId: string,
-  transaction: Transaction,
+  transaction: Transaction
 ) => {
   return LikedComment.create({ userId, commentId }, { transaction });
 };
@@ -78,18 +78,19 @@ export const createLikedComment = (
 export const deleteLikedComment = (
   userId: string,
   commentId: string,
-  transaction: Transaction,
+  transaction: Transaction
 ) => {
   return LikedComment.destroy({ where: { userId, commentId }, transaction });
 };
 
 export const findLikedCommentIdsByUserAndCommentIds = (
   userId: string,
-  commentIds: string[],
+  commentIds: string[]
 ) => {
-  if (!commentIds || commentIds.length === 0) return Promise.resolve([] as string[]);
+  if (!commentIds || commentIds.length === 0)
+    return Promise.resolve([] as string[]);
   return LikedComment.findAll({
     where: { userId, commentId: commentIds },
-    attributes: ["commentId"],
+    attributes: ['commentId'],
   }).then((rows) => rows.map((r: any) => r.commentId));
 };

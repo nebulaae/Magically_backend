@@ -1,6 +1,6 @@
-import db from "../../../shared/config/database";
-import type { User } from "../../user/models/User";
-import type { Comment } from "../../comment/models/Comment";
+import db from '../../../shared/config/database';
+import type { User } from '../../user/models/User';
+import type { Comment } from '../../comment/models/Comment';
 import {
   Model,
   DataTypes,
@@ -8,7 +8,7 @@ import {
   BelongsToManyGetAssociationsMixin,
   BelongsToManyRemoveAssociationMixin,
   HasManyGetAssociationsMixin,
-} from "sequelize";
+} from 'sequelize';
 
 // --- Publication Model Attributes ---
 export interface PublicationAttributes {
@@ -62,8 +62,8 @@ Publication.init(
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: "users",
-        key: "id",
+        model: 'users',
+        key: 'id',
       },
     },
     content: {
@@ -100,7 +100,7 @@ Publication.init(
   },
   {
     sequelize: db,
-    modelName: "Publication",
-    tableName: "publications",
-  },
+    modelName: 'Publication',
+    tableName: 'publications',
+  }
 );

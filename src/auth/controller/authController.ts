@@ -1,19 +1,19 @@
-import logger from "../../../shared/utils/logger";
-import * as authService from "../service/authService";
-import * as apiResponse from "../../../shared/utils/apiResponse";
-import { Request, Response } from "express";
+import logger from '../../../shared/utils/logger';
+import * as authService from '../service/authService';
+import * as apiResponse from '../../../shared/utils/apiResponse';
+import { Request, Response } from 'express';
 import {
   verifyTelegramWebAppData,
   verifyTelegramLoginWidget,
-} from "../../../shared/utils/telegram";
+} from '../../../shared/utils/telegram';
 
-const isProd = process.env.NODE_ENV === "production";
+const isProd = process.env.NODE_ENV === 'production';
 
 export const registerStep1 = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return apiResponse.badRequest(res, "Email is required.");
+      return apiResponse.badRequest(res, 'Email is required.');
     }
     const result = await authService.registerStep1(email);
     apiResponse.success(res, null, result.message);
@@ -27,7 +27,7 @@ export const registerStep2 = async (req: Request, res: Response) => {
   try {
     const { email, otp } = req.body;
     if (!email || !otp) {
-      return apiResponse.badRequest(res, "Email and OTP are required.");
+      return apiResponse.badRequest(res, 'Email and OTP are required.');
     }
     const result = await authService.registerStep2(email, otp);
     apiResponse.success(res, null, result.message);
@@ -42,25 +42,29 @@ export const registerStep3 = async (req: Request, res: Response) => {
     const { email, fullname, username, password } = req.body;
 
     if (!email || !fullname || !username || !password) {
-      return apiResponse.badRequest(res, "All fields are required.");
-    };
+      return apiResponse.badRequest(res, 'All fields are required.');
+    }
 
     const result = await authService.registerStep3(
       email,
       fullname,
       username,
-      password,
+      password
     );
 
-
-    res.cookie("token", result.token, {
+    res.cookie('token', result.token, {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? "none" : "lax",
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
 
-    apiResponse.success(res, result, "Registration successful. Logged in.", 200);
+    apiResponse.success(
+      res,
+      result,
+      'Registration successful. Logged in.',
+      200
+    );
   } catch (error) {
     logger.error(`Register step 3 error: ${error.message}`);
     apiResponse.badRequest(res, error.message);
@@ -71,49 +75,46 @@ export const telegramWebAppAuth = async (req: Request, res: Response) => {
   try {
     const { initData } = req.body;
     if (!initData) {
-      return apiResponse.badRequest(res, "No initData provided");
+      return apiResponse.badRequest(res, 'No initData provided');
     }
 
     const tgUser = verifyTelegramWebAppData(initData);
     if (!tgUser) {
-      return apiResponse.unauthorized(res, "Invalid Telegram WebApp data");
+      return apiResponse.unauthorized(res, 'Invalid Telegram WebApp data');
     }
 
     const result = await authService.telegramLogin(tgUser);
 
-
-    res.cookie("token", result.token, {
+    res.cookie('token', result.token, {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? "none" : "lax",
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
 
-    apiResponse.success(res, result, "Telegram WebApp login successful");
+    apiResponse.success(res, result, 'Telegram WebApp login successful');
   } catch (error) {
     apiResponse.internalError(res, error.message);
   }
 };
 
-
 export const telegramWidgetAuth = async (req: Request, res: Response) => {
   try {
     const tgUser = verifyTelegramLoginWidget(req.body);
     if (!tgUser) {
-      return apiResponse.unauthorized(res, "Invalid Telegram Widget data");
+      return apiResponse.unauthorized(res, 'Invalid Telegram Widget data');
     }
 
     const result = await authService.telegramLogin(tgUser);
 
-
-    res.cookie("token", result.token, {
+    res.cookie('token', result.token, {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? "none" : "lax",
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
 
-    apiResponse.success(res, result, "Telegram Widget login successful");
+    apiResponse.success(res, result, 'Telegram Widget login successful');
   } catch (error) {
     apiResponse.internalError(res, error.message);
   }
@@ -124,15 +125,14 @@ export const login = async (req: Request, res: Response) => {
     const { usernameOrEmail, password } = req.body;
     const result = await authService.login(usernameOrEmail, password);
 
-
-    res.cookie("token", result.token, {
+    res.cookie('token', result.token, {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? "none" : "lax",
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
 
-    apiResponse.success(res, result, "Login successful.");
+    apiResponse.success(res, result, 'Login successful.');
   } catch (error) {
     logger.error(`Login error: ${error.message}`);
     apiResponse.unauthorized(res, error.message);
@@ -140,8 +140,8 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const logout = (req: Request, res: Response) => {
-  res.clearCookie("token");
-  apiResponse.success(res, null, "Successfully logged out.");
+  res.clearCookie('token');
+  apiResponse.success(res, null, 'Successfully logged out.');
 };
 
 export const getMe = async (req: Request, res: Response) => {
@@ -158,7 +158,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return apiResponse.badRequest(res, "Email is required.");
+      return apiResponse.badRequest(res, 'Email is required.');
     }
     const result = await authService.handleForgotPassword(email);
     apiResponse.success(res, null, result.message);
@@ -166,17 +166,19 @@ export const forgotPassword = async (req: Request, res: Response) => {
     logger.error(`Forgot Password Error: ${error.message}`);
     apiResponse.internalError(
       res,
-      "Server error during password forgot process.",
+      'Server error during password forgot process.'
     );
   }
 };
 
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
+    const token = Array.isArray(req.params.token)
+      ? req.params.token[0]
+      : req.params.token;
     const { password } = req.body;
     if (!password) {
-      return apiResponse.badRequest(res, "Password is required.");
+      return apiResponse.badRequest(res, 'Password is required.');
     }
     const result = await authService.resetPassword(token, password);
     apiResponse.success(res, null, result.message);

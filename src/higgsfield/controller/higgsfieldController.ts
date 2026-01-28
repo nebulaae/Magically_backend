@@ -1,10 +1,10 @@
-import db from "../../../shared/config/database";
-import logger from "../../../shared/utils/logger";
-import { Request, Response } from "express";
-import { GenerationJob } from "../../publication/models/GenerationJob";
-import { deductTokensForGeneration } from "../../../shared/utils/userActions";
-import * as higgsfieldService from "../service/higgsfieldService";
-import * as apiResponse from "../../../shared/utils/apiResponse";
+import db from '../../../shared/config/database';
+import logger from '../../../shared/utils/logger';
+import { Request, Response } from 'express';
+import { GenerationJob } from '../../publication/models/GenerationJob';
+import { deductTokensForGeneration } from '../../../shared/utils/userActions';
+import * as higgsfieldService from '../service/higgsfieldService';
+import * as apiResponse from '../../../shared/utils/apiResponse';
 
 export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
   const { prompt, motion_id, model, enhance_prompt, seed, publish } = req.body;
@@ -13,28 +13,32 @@ export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
   const isPublish = publish === 'true' || publish === true;
 
   if (!prompt || !motion_id) {
-    return apiResponse.badRequest(res, "Both 'prompt' and 'motion_id' are required.");
+    return apiResponse.badRequest(
+      res,
+      "Both 'prompt' and 'motion_id' are required."
+    );
   }
 
   if (!files || files.length < 1) {
-    return apiResponse.badRequest(res, "At least one image is required.");
+    return apiResponse.badRequest(res, 'At least one image is required.');
   }
 
   const startImageUrl = `${process.env.BACKEND_URL}/ai/higgsfield/${files[0].filename}`;
-  const endImageUrl = files.length > 1
-    ? `${process.env.BACKEND_URL}/ai/higgsfield/${files[1].filename}`
-    : undefined;
+  const endImageUrl =
+    files.length > 1
+      ? `${process.env.BACKEND_URL}/ai/higgsfield/${files[1].filename}`
+      : undefined;
 
   const t = await db.transaction();
 
   try {
-    await deductTokensForGeneration(userId, "video", t);
+    await deductTokensForGeneration(userId, 'video', t);
 
     const payload = {
       prompt,
       motion_id,
-      model: model || "standard",
-      enhance_prompt: enhance_prompt === "true" || false,
+      model: model || 'standard',
+      enhance_prompt: enhance_prompt === 'true' || false,
       seed: seed ? parseInt(seed, 10) : undefined,
       start_image_url: startImageUrl,
       end_image_url: endImageUrl,
@@ -42,27 +46,37 @@ export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
 
     const genResponse = await higgsfieldService.generateVideo(payload);
 
-    const taskId = genResponse?.data?.task_id || genResponse?.task_id || genResponse?.data_id;
+    const taskId =
+      genResponse?.data?.task_id ||
+      genResponse?.task_id ||
+      genResponse?.data_id;
 
     if (!taskId) {
-      throw new Error("Failed to retrieve task_id from Higgsfield response.");
+      throw new Error('Failed to retrieve task_id from Higgsfield response.');
     }
 
-    const job = await GenerationJob.create({
-      userId,
-      service: "higgsfield",
-      serviceTaskId: taskId,
-      status: "pending",
-      meta: {
-        prompt: prompt || "Higgsfield Video",
-        publish: isPublish,
-        motion_id: motion_id
-      }
-    }, { transaction: t });
+    const job = await GenerationJob.create(
+      {
+        userId,
+        service: 'higgsfield',
+        serviceTaskId: taskId,
+        status: 'pending',
+        meta: {
+          prompt: prompt || 'Higgsfield Video',
+          publish: isPublish,
+          motion_id: motion_id,
+        },
+      },
+      { transaction: t }
+    );
 
     await t.commit();
 
-    apiResponse.success(res, { jobId: job.id, status: "pending" }, "Higgsfield generation started");
+    apiResponse.success(
+      res,
+      { jobId: job.id, status: 'pending' },
+      'Higgsfield generation started'
+    );
   } catch (error) {
     await t.rollback();
     logger.error(`Higgsfield Start Error: ${error.message}`);
@@ -77,7 +91,7 @@ export const getHiggsfieldMotions = async (req: Request, res: Response) => {
       size ? parseInt(size as string, 10) : 30,
       cursor ? parseInt(cursor as string, 10) : undefined
     );
-    apiResponse.success(res, result, "Fetched Higgsfield motion presets.");
+    apiResponse.success(res, result, 'Fetched Higgsfield motion presets.');
   } catch (error: any) {
     logger.error(`Error fetching Higgsfield motions: ${error.message}`);
     apiResponse.internalError(res, error.message);

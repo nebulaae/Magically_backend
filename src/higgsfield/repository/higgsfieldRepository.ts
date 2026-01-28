@@ -1,6 +1,6 @@
-import { Transaction } from "sequelize";
-import { Gallery } from "../../gallery/models/Gallery";
-import { Publication } from "../../publication/models/Publication";
+import { Transaction } from 'sequelize';
+import { Gallery } from '../../gallery/models/Gallery';
+import { Publication } from '../../publication/models/Publication';
 
 export const createPublication = (data: any, transaction: Transaction) => {
   return Publication.create(data, { transaction });

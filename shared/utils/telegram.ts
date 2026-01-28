@@ -1,77 +1,60 @@
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import logger from './logger';
 
 dotenv.config();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
-export const verifyTelegramWebAppData = (initDataRaw: string): any => {
-  const pairs = initDataRaw.split("&");
-  let hash = "";
-  const data: string[] = [];
-  let userRaw = "";
+export const verifyTelegramWebAppData = (initDataRaw: string) => {
+  const params = new URLSearchParams(initDataRaw);
 
-  for (const pair of pairs) {
-    const idx = pair.indexOf("=");
-    if (idx === -1) continue;
+  const hash = params.get('hash');
+  if (!hash) return null;
 
-    const key = pair.slice(0, idx);
-    const value = pair.slice(idx + 1);
+  const authDate = Number(params.get('auth_date'));
+  const now = Math.floor(Date.now() / 1000);
 
-    if (key === "hash") {
-      hash = value;
-      continue;
-    }
-
-    if (key === "signature") {
-      continue;
-    }
-
-    // ⚠️ Сохраняем RAW значение (без decode!)
-    data.push(`${key}=${value}`);
-
-    if (key === "user") {
-      userRaw = value;
-    }
+  if (Math.abs(now - authDate) > 300) {
+    console.log('InitData outdated');
+    return null;
   }
+
+  // формируем data_check_string
+  const data: string[] = [];
+
+  params.forEach((value, key) => {
+    if (key === 'hash') return;
+    data.push(`${key}=${value}`);
+  });
 
   data.sort();
-  const dataCheckString = data.join("\n");
+  const dataCheckString = data.join('\n');
 
-  // ШАГ 1: secret = HMAC_SHA256("WebAppData", BOT_TOKEN)
+  // secret_key = HMAC_SHA256(bot_token, "WebAppData")
   const secretKey = crypto
-    .createHmac("sha256", "WebAppData")
-    .update(BOT_TOKEN!)
+    .createHmac('sha256', 'WebAppData')
+    .update(BOT_TOKEN)
     .digest();
 
-  // ШАГ 2: финальный хеш
   const computedHash = crypto
-    .createHmac("sha256", secretKey)
+    .createHmac('sha256', secretKey)
     .update(dataCheckString)
-    .digest("hex");
-
-  console.log("=== DEBUG ===");
-  console.log("Data check string:");
-  console.log(dataCheckString);
-  console.log("\nComputed hash:", computedHash);
-  console.log("Received hash:", hash);
-  console.log("Match:", computedHash === hash);
+    .digest('hex');
 
   if (computedHash !== hash) {
+    console.log('Hash mismatch');
     return null;
   }
 
-  // Парсим user (теперь с decode)
-  try {
-    if (userRaw) {
-      const decoded = decodeURIComponent(userRaw);
-      return JSON.parse(decoded);
-    }
-    return null;
-  } catch (error) {
-    console.error("Failed to parse user data:", error);
-    return null;
-  }
+  // parse user
+  const userRaw = params.get('user');
+  if (!userRaw) return null;
+
+  console.log('Telegram WebApp VALIDATED');
+  console.log('User:', userRaw);
+
+  return JSON.parse(decodeURIComponent(userRaw));
 };
 
 export const verifyTelegramLoginWidget = (data: any) => {
@@ -79,20 +62,17 @@ export const verifyTelegramLoginWidget = (data: any) => {
 
   const dataCheckString = Object.keys(rest)
     .sort()
-    .map(key => `${key}=${rest[key]}`)
-    .join("\n");
+    .map((key) => `${key}=${rest[key]}`)
+    .join('\n');
 
-  const secret = crypto
-    .createHash("sha256")
-    .update(BOT_TOKEN)
-    .digest();
+  const secret = crypto.createHash('sha256').update(BOT_TOKEN).digest();
 
   const computedHash = crypto
-    .createHmac("sha256", secret)
+    .createHmac('sha256', secret)
     .update(dataCheckString)
-    .digest("hex");
+    .digest('hex');
 
   if (computedHash !== hash) return null;
 
   return rest;
-}
+};
