@@ -1,4 +1,4 @@
-import db from "../../../shared/config/database";
+import db from '../../../shared/config/database';
 import {
   Model,
   DataTypes,
@@ -8,9 +8,9 @@ import {
   BelongsToManyGetAssociationsMixin,
   BelongsToManyAddAssociationMixin,
   BelongsToManyRemoveAssociationMixin,
-} from "sequelize";
-import type { User } from "../../user/models/User";
-import type { Publication } from "../../publication/models/Publication";
+} from 'sequelize';
+import type { User } from '../../user/models/User';
+import type { Publication } from '../../publication/models/Publication';
 
 // --- Comment Model Attributes ---
 export interface CommentAttributes {
@@ -74,24 +74,24 @@ Comment.init(
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: "users",
-        key: "id",
+        model: 'users',
+        key: 'id',
       },
     },
     publicationId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: "publications",
-        key: "id",
+        model: 'publications',
+        key: 'id',
       },
     },
     parentId: {
       type: DataTypes.UUID,
       allowNull: true,
       references: {
-        model: "comments", // Self-reference for replies
-        key: "id",
+        model: 'comments', // Self-reference for replies
+        key: 'id',
       },
     },
     likeCount: {
@@ -104,7 +104,11 @@ Comment.init(
       type: DataTypes.VIRTUAL(DataTypes.BOOLEAN),
       get(this: any) {
         // allow explicit setDataValue / dataValues overlay
-        if (this && this.dataValues && Object.prototype.hasOwnProperty.call(this.dataValues, "isLiked")) {
+        if (
+          this &&
+          this.dataValues &&
+          Object.prototype.hasOwnProperty.call(this.dataValues, 'isLiked')
+        ) {
           return this.dataValues.isLiked;
         }
         return false;
@@ -117,7 +121,7 @@ Comment.init(
   },
   {
     sequelize: db,
-    modelName: "Comment",
-    tableName: "comments",
-  },
+    modelName: 'Comment',
+    tableName: 'comments',
+  }
 );

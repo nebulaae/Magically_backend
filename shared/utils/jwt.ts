@@ -1,10 +1,10 @@
-import dotenv from "dotenv";
-import jwt from "jsonwebtoken";
+import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
 
 dotenv.config();
 
 // Configs
-const JWT_EXPIRES_IN = "365d";
+const JWT_EXPIRES_IN = '365d';
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // Generate token

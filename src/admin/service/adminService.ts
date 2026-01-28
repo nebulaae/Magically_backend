@@ -1,11 +1,11 @@
-import * as adminRepository from "../repository/adminRepository";
-import { User } from "../../user/models/User";
-import { Comment } from "../../comment/models/Comment";
-import { generateToken } from "../../../shared/utils/jwt";
-import { Publication } from "../../publication/models/Publication";
-import { GenerationJob } from "../../publication/models/GenerationJob";
-import { Transaction as TxModel } from "../../transaction/models/Transaction";
-import { performTransaction } from "../../transaction/service/transactionService";
+import * as adminRepository from '../repository/adminRepository';
+import { User } from '../../user/models/User';
+import { Comment } from '../../comment/models/Comment';
+import { generateToken } from '../../../shared/utils/jwt';
+import { Publication } from '../../publication/models/Publication';
+import { GenerationJob } from '../../publication/models/GenerationJob';
+import { Transaction as TxModel } from '../../transaction/models/Transaction';
+import { performTransaction } from '../../transaction/service/transactionService';
 
 export const loginAdmin = async (username: string, password) => {
   const adminUser = await adminRepository.findAdminByUsername(username);
@@ -53,15 +53,20 @@ export const setPhotoOfTheDay = (publicationId: string) => {
   return adminRepository.setPublicationAsPhotoOfTheDay(publicationId);
 };
 
-export const addTokensToUser = async (adminId: string, targetUserId: string, amount: number, reason: string) => {
+export const addTokensToUser = async (
+  adminId: string,
+  targetUserId: string,
+  amount: number,
+  reason: string
+) => {
   const description = `Admin Gift: ${reason} (by Admin)`;
-  return await performTransaction(targetUserId, amount, "credit", description);
+  return await performTransaction(targetUserId, amount, 'credit', description);
 };
 
 export const deleteComment = async (commentId: string) => {
   const comment = await Comment.findByPk(commentId);
   if (!comment) return null;
-  await comment.destroy(); 
+  await comment.destroy();
   return true;
 };
 
@@ -71,19 +76,19 @@ export const getFullAnalytics = async () => {
     publicationsCount,
     generationsTotal,
     generationsPending,
-    spentTokensResult
+    spentTokensResult,
   ] = await Promise.all([
     User.count(),
     Publication.count(),
     GenerationJob.count(),
     GenerationJob.count({ where: { status: 'pending' } }),
-    TxModel.sum('amount', { where: { type: 'debit' } })
+    TxModel.sum('amount', { where: { type: 'debit' } }),
   ]);
 
   return {
     users: { total: usersCount },
     content: { publications: publicationsCount },
     generations: { total: generationsTotal, pending: generationsPending },
-    economy: { totalTokensSpent: spentTokensResult || 0 }
+    economy: { totalTokensSpent: spentTokensResult || 0 },
   };
 };

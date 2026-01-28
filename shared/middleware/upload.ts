@@ -1,19 +1,19 @@
-import fs from "fs";
-import path from "path";
-import multer from "multer";
-import { Request } from "express";
-import { publicDir } from "../utils/paths";
+import fs from 'fs';
+import path from 'path';
+import multer from 'multer';
+import { Request } from 'express';
+import { publicDir } from '../utils/paths';
 
 // Define the destinations for directories
-export const gptDir = publicDir("ai", "gpt");
-export const nanoDir = publicDir("ai", "nano");
-export const fluxDir = publicDir("ai", "flux");
-export const klingDir = publicDir("ai", "kling");
-export const ttapiDir = publicDir("ai", "ttapi");
-export const aiModelsDir = publicDir("ai", "models");
-export const avatarDir = publicDir("users", "avatars");
-export const higgsfieldDir = publicDir("ai", "higgsfield");
-export const publicationDir = publicDir("publications");
+export const gptDir = publicDir('ai', 'gpt');
+export const nanoDir = publicDir('ai', 'nano');
+export const fluxDir = publicDir('ai', 'flux');
+export const klingDir = publicDir('ai', 'kling');
+export const ttapiDir = publicDir('ai', 'ttapi');
+export const aiModelsDir = publicDir('ai', 'models');
+export const avatarDir = publicDir('users', 'avatars');
+export const higgsfieldDir = publicDir('ai', 'higgsfield');
+export const publicationDir = publicDir('publications');
 
 // Ensure directories exist
 [
@@ -36,12 +36,12 @@ export const publicationDir = publicDir("publications");
 const fileFilter = (
   req: Request,
   file: Express.Multer.File,
-  cb: multer.FileFilterCallback,
+  cb: multer.FileFilterCallback
 ) => {
   const allowedTypes = /jpeg|jpg|png|gif|heic|heif/;
   const mimetype = allowedTypes.test(file.mimetype);
   const extname = allowedTypes.test(
-    path.extname(file.originalname).toLowerCase(),
+    path.extname(file.originalname).toLowerCase()
   );
 
   if (mimetype && extname) {
@@ -49,9 +49,9 @@ const fileFilter = (
   }
   cb(
     new Error(
-      "Error: File upload only supports the following filetypes - " +
-      allowedTypes,
-    ),
+      'Error: File upload only supports the following filetypes - ' +
+        allowedTypes
+    )
   );
 };
 
@@ -59,25 +59,25 @@ const fileFilter = (
 const imageAndVideoFileFilter = (
   req: Request,
   file: Express.Multer.File,
-  cb: multer.FileFilterCallback,
+  cb: multer.FileFilterCallback
 ) => {
   const allowedImageTypes = /jpeg|jpg|png|gif/;
   const allowedVideoTypes = /mp4|mov|avi|webm|mkv/;
-  const ext = path.extname(file.originalname).toLowerCase().replace(".", "");
+  const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
   const mimetype = file.mimetype;
 
   if (
     allowedImageTypes.test(ext) ||
     allowedVideoTypes.test(ext) ||
-    mimetype.startsWith("image/") ||
-    mimetype.startsWith("video/")
+    mimetype.startsWith('image/') ||
+    mimetype.startsWith('video/')
   ) {
     return cb(null, true);
   }
   cb(
     new Error(
-      "Error: File upload only supports image and video filetypes - jpeg, jpg, png, gif, mp4, mov, avi, webm, mkv",
-    ),
+      'Error: File upload only supports image and video filetypes - jpeg, jpg, png, gif, mp4, mov, avi, webm, mkv'
+    )
   );
 };
 
@@ -89,14 +89,14 @@ export const uploadAvatar = multer({
     },
     filename: (req: Request, file, cb) => {
       const userId = req.user.id;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `${userId}-${uniqueSuffix}${extension}`);
     },
   }),
   limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
   fileFilter: fileFilter,
-}).single("avatar");
+}).single('avatar');
 
 // Storage to upload publications
 export const uploadPublicationImage = multer({
@@ -106,14 +106,14 @@ export const uploadPublicationImage = multer({
     },
     filename: (req: Request, file, cb) => {
       const userId = req.user.id;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `${userId}-${uniqueSuffix}${extension}`);
     },
   }),
   limits: { fileSize: 200 * 1024 * 1024 }, // 200MB limit
   fileFilter: imageAndVideoFileFilter,
-}).single("publicationMedia");
+}).single('publicationMedia');
 
 // Storage to upload image to kling
 export const uploadKlingImage = multer({
@@ -123,14 +123,14 @@ export const uploadKlingImage = multer({
     },
     filename: (req, file, cb) => {
       const userId = req.user.id;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `kling-${userId}-${uniqueSuffix}${extension}`);
     },
   }),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
   fileFilter: fileFilter,
-}).single("klingImage");
+}).single('klingImage');
 
 // Storage to upload images to higgsfield
 export const uploadHiggsfieldImage = multer({
@@ -140,14 +140,14 @@ export const uploadHiggsfieldImage = multer({
     },
     filename: (req, file, cb) => {
       const userId = req.user.id;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `higgsfield-${userId}-${uniqueSuffix}${extension}`);
     },
   }),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
   fileFilter: fileFilter,
-}).array("higgsfieldImage", 2);
+}).array('higgsfieldImage', 2);
 
 export const uploadTtapiModelImages = multer({
   storage: multer.diskStorage({
@@ -156,28 +156,30 @@ export const uploadTtapiModelImages = multer({
     },
     filename: (req: Request, file, cb) => {
       const userId = req.user.id;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `ttapi-${userId}-${uniqueSuffix}${extension}`);
     },
   }),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: fileFilter,
-}).array("modelImages", 8);
+}).array('modelImages', 8);
 
 export const uploadFluxModelImages = multer({
   storage: multer.diskStorage({
-    destination: (req, file, cb) => { cb(null, fluxDir); },
+    destination: (req, file, cb) => {
+      cb(null, fluxDir);
+    },
     filename: (req, file, cb) => {
       const userId = req.user.id;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `flux-${userId}-${uniqueSuffix}${extension}`);
     },
   }),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: fileFilter,
-}).array("modelImages", 8);
+}).array('modelImages', 8);
 
 export const uploadNanoImages = multer({
   storage: multer.diskStorage({
@@ -186,14 +188,14 @@ export const uploadNanoImages = multer({
     },
     filename: (req: Request, file, cb) => {
       const userId = req.user.id;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `nano-${userId}-${uniqueSuffix}${extension}`);
     },
   }),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
   fileFilter: fileFilter,
-}).single("nanoImage");
+}).single('nanoImage');
 
 export const uploadGptImages = multer({
   storage: multer.diskStorage({
@@ -202,14 +204,14 @@ export const uploadGptImages = multer({
     },
     filename: (req: Request, file, cb) => {
       const userId = req.user.id;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `gpt-${userId}-${uniqueSuffix}${extension}`);
     },
   }),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
   fileFilter: fileFilter,
-}).single("gptImages");
+}).single('gptImages');
 
 export const uploadAIModelImages = multer({
   storage: multer.diskStorage({
@@ -218,11 +220,11 @@ export const uploadAIModelImages = multer({
     },
     filename: (req: Request, file, cb) => {
       const userId = req.user.id;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `ai-model-${userId}-${uniqueSuffix}${extension}`);
     },
   }),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: fileFilter,
-}).array("modelImages", 8);
+}).array('modelImages', 8);

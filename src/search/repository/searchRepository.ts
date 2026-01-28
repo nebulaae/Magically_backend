@@ -1,7 +1,7 @@
-import { Op } from "sequelize";
-import { User } from "../../user/models/User";
-import { Publication } from "../../publication/models/Publication";
-import { Subscription } from "../../user/models/Subscription";
+import { Op } from 'sequelize';
+import { User } from '../../user/models/User';
+import { Publication } from '../../publication/models/Publication';
+import { Subscription } from '../../user/models/Subscription';
 
 export const findUsersByQuery = (query: string, currentUserId: string) => {
   return User.findAll({
@@ -12,7 +12,7 @@ export const findUsersByQuery = (query: string, currentUserId: string) => {
       ],
       id: { [Op.ne]: currentUserId },
     },
-    attributes: ["id", "username", "fullname", "bio", "avatar"],
+    attributes: ['id', 'username', 'fullname', 'bio', 'avatar'],
     limit: 10,
   });
 };
@@ -23,8 +23,8 @@ export const findPublicationsByQuery = (pubWhere: any, pubOrder: any) => {
     include: [
       {
         model: User,
-        as: "author",
-        attributes: ["id", "username", "fullname", "avatar"],
+        as: 'author',
+        attributes: ['id', 'username', 'fullname', 'avatar'],
       },
     ],
     order: pubOrder,

@@ -1,6 +1,6 @@
-import db from "../../../shared/config/database";
+import db from '../../../shared/config/database';
 
-import { DataTypes, Model } from "sequelize";
+import { DataTypes, Model } from 'sequelize';
 
 // --- Subscription Model Attributes (Join Table) ---
 export interface SubscriptionAttributes {
@@ -24,23 +24,23 @@ Subscription.init(
       type: DataTypes.UUID,
       primaryKey: true,
       references: {
-        model: "users",
-        key: "id",
+        model: 'users',
+        key: 'id',
       },
     },
     followingId: {
       type: DataTypes.UUID,
       primaryKey: true,
       references: {
-        model: "users",
-        key: "id",
+        model: 'users',
+        key: 'id',
       },
     },
   },
   {
     sequelize: db,
-    modelName: "Subscription",
-    tableName: "subscriptions",
+    modelName: 'Subscription',
+    tableName: 'subscriptions',
     timestamps: false, // No createdAt/updatedAt for a join table
-  },
+  }
 );

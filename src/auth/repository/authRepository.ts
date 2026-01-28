@@ -1,5 +1,5 @@
-import { Op } from "sequelize";
-import { User } from "../../user/models/User";
+import { Op } from 'sequelize';
+import { User } from '../../user/models/User';
 
 export const findUserById = (id: string) => {
   return User.findOne({ where: { id } });

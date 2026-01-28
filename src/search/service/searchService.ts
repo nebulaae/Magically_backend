@@ -1,16 +1,16 @@
-import { Op } from "sequelize";
-import { User } from "../../user/models/User";
-import * as searchRepository from "../repository/searchRepository";
+import { Op } from 'sequelize';
+import { User } from '../../user/models/User';
+import * as searchRepository from '../repository/searchRepository';
 
 const addIsFollowingInfoToUsers = async (
   users: User[],
-  currentUserId: string,
+  currentUserId: string
 ) => {
   if (users.length === 0) return [];
   const userIds = users.map((u) => u.id);
   const subscriptions = await searchRepository.findSubscriptions(
     currentUserId,
-    userIds,
+    userIds
   );
   const followingIds = new Set(subscriptions.map((s) => s.followingId));
 
@@ -25,32 +25,32 @@ export const searchAll = async (
   type: string,
   sortBy: string,
   hashtag: string,
-  currentUserId: string,
+  currentUserId: string
 ) => {
   let usersResult = [];
   let publicationsResult = [];
 
-  if (type === "all" || type === "publications") {
-    let pubWhere: any = {};
-    let pubOrder: any = [["createdAt", "DESC"]];
+  if (type === 'all' || type === 'publications') {
+    const pubWhere: any = {};
+    let pubOrder: any = [['createdAt', 'DESC']];
 
     if (query) {
       pubWhere[Op.or] = [
         { content: { [Op.iLike]: `%${query}%` } },
-        { "$author.username$": { [Op.iLike]: `%${query}%` } },
+        { '$author.username$': { [Op.iLike]: `%${query}%` } },
       ];
     }
     if (hashtag) pubWhere.content = { [Op.iLike]: `%#${hashtag}%` };
-    if (sortBy === "popular") pubOrder = [["likeCount", "DESC"]];
-    else if (sortBy === "oldest") pubOrder = [["createdAt", "ASC"]];
+    if (sortBy === 'popular') pubOrder = [['likeCount', 'DESC']];
+    else if (sortBy === 'oldest') pubOrder = [['createdAt', 'ASC']];
 
     publicationsResult = await searchRepository.findPublicationsByQuery(
       pubWhere,
-      pubOrder,
+      pubOrder
     );
   }
 
-  if ((type === "all" || type === "users") && query) {
+  if ((type === 'all' || type === 'users') && query) {
     const users = await searchRepository.findUsersByQuery(query, currentUserId);
     usersResult = await addIsFollowingInfoToUsers(users, currentUserId);
   }

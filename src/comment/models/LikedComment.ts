@@ -1,5 +1,5 @@
-import db from "../../../shared/config/database";
-import { DataTypes, Model } from "sequelize";
+import db from '../../../shared/config/database';
+import { DataTypes, Model } from 'sequelize';
 
 export interface LikedCommentAttributes {
   userId: string;
@@ -20,23 +20,23 @@ LikedComment.init(
       type: DataTypes.UUID,
       primaryKey: true,
       references: {
-        model: "users",
-        key: "id",
+        model: 'users',
+        key: 'id',
       },
     },
     commentId: {
       type: DataTypes.UUID,
       primaryKey: true,
       references: {
-        model: "comments",
-        key: "id",
+        model: 'comments',
+        key: 'id',
       },
     },
   },
   {
     sequelize: db,
-    modelName: "LikedComment",
-    tableName: "liked_comments",
+    modelName: 'LikedComment',
+    tableName: 'liked_comments',
     timestamps: false,
-  },
+  }
 );

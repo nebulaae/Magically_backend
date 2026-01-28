@@ -1,24 +1,24 @@
-import cors from "cors";
-import path from "path";
-import http from "http";
-import dotenv from "dotenv";
-import express from "express";
-import passport from "passport";
-import mainRouter from "./router";
-import cookieParser from "cookie-parser";
-import db from "../shared/config/database";
-import logger from "../shared/utils/logger";
-import promBundle from "express-prom-bundle";
-import "../shared/config/passport";
+import cors from 'cors';
+import path from 'path';
+import http from 'http';
+import dotenv from 'dotenv';
+import express from 'express';
+import passport from 'passport';
+import mainRouter from './router';
+import cookieParser from 'cookie-parser';
+import db from '../shared/config/database';
+import logger from '../shared/utils/logger';
+import promBundle from 'express-prom-bundle';
+import '../shared/config/passport';
 
-import { pinoHttp } from "pino-http";
-import { PUBLIC_ROOT } from "../shared/utils/paths";
-import { Server as SocketIOServer } from "socket.io";
-import { createAdmin } from "../shared/scripts/createAdmin";
-import { startJobPoller } from "../shared/workers/jobPoller";
-import { seedTestData } from "../shared/scripts/seedTestData";
-import { setupAssociations } from "../shared/models/associations";
-import { initializeSocketIO } from "../shared/utils/socketManager";
+import { pinoHttp } from 'pino-http';
+import { PUBLIC_ROOT } from '../shared/utils/paths';
+import { Server as SocketIOServer } from 'socket.io';
+import { createAdmin } from '../shared/scripts/createAdmin';
+import { startJobPoller } from '../shared/workers/jobPoller';
+import { seedTestData } from '../shared/scripts/seedTestData';
+import { setupAssociations } from '../shared/models/associations';
+import { initializeSocketIO } from '../shared/utils/socketManager';
 
 dotenv.config();
 
@@ -38,38 +38,40 @@ const metricsMiddleware = promBundle({
 const io = new SocketIOServer(server, {
   cors: {
     origin: process.env.FRONTEND_URL,
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
   },
 });
 const allowedOrigins = [
-  process.env.FRONTEND_URL || "http://localhost:3000",
-  process.env.ADMIN_URL || "http://localhost:3001",
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  process.env.ADMIN_URL || 'http://localhost:3001',
 ];
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 app.use(passport.initialize());
 app.use(cookieParser());
 app.use(express.json());
 app.use(metricsMiddleware);
 app.use(express.urlencoded({ extended: true }));
-app.use("/api/v1/", mainRouter);
+app.use('/api/v1/', mainRouter);
 app.use(express.static(PUBLIC_ROOT));
 app.use(
   pinoHttp({
     logger,
-    autoLogging: { ignore: (req) => req.url === "/api/v1/health" },
+    autoLogging: { ignore: (req) => req.url === '/api/v1/health' },
     serializers: {
       req(req) {
         return {
@@ -84,7 +86,7 @@ app.use(
         };
       },
     },
-  }),
+  })
 );
 
 // Initialize database and start server
@@ -94,10 +96,10 @@ const startServer = async () => {
     setupAssociations();
     // Initialize database
     await db.sync({ alter: true });
-    logger.info("Database synchronized");
+    logger.info('Database synchronized');
     // Initialize socket
     initializeSocketIO(io);
-    logger.info("Socket initialized");
+    logger.info('Socket initialized');
 
     // Seed
     // await seedTestData();
@@ -113,4 +115,4 @@ const startServer = async () => {
   }
 };
 
-startServer().then((r) => logger.info("Server started"));
+startServer().then((r) => logger.info('Server started'));

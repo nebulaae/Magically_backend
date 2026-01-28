@@ -1,16 +1,16 @@
-import logger from "./logger";
-import { Transaction } from "sequelize";
-import { User } from "../../src/user/models/User";
-import { Comment } from "../../src/comment/models/Comment";
-import { LikedComment } from "../../src/comment/models/LikedComment";
-import { performTransaction } from "../../src/transaction/service/transactionService";
+import logger from './logger';
+import { Transaction } from 'sequelize';
+import { User } from '../../src/user/models/User';
+import { Comment } from '../../src/comment/models/Comment';
+import { LikedComment } from '../../src/comment/models/LikedComment';
+import { performTransaction } from '../../src/transaction/service/transactionService';
 
 // Manages daily actions and awards tokens atomically.
 export const handleUserAction = async (
   user: User,
   tokenAmount: number,
   t: Transaction,
-  actionDescription: string = "Reward for activity"
+  actionDescription: string = 'Reward for activity'
 ) => {
   const now = new Date();
   // It's crucial to use the user object from the transaction to avoid stale data
@@ -18,14 +18,14 @@ export const handleUserAction = async (
 
   // Create date objects with only year, month, and day for accurate comparison
   const today = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
   );
   const lastResetDay = new Date(
     Date.UTC(
       lastReset.getUTCFullYear(),
       lastReset.getUTCMonth(),
-      lastReset.getUTCDate(),
-    ),
+      lastReset.getUTCDate()
+    )
   );
 
   let currentCount = user.dailyActions.count;
@@ -39,7 +39,13 @@ export const handleUserAction = async (
   }
 
   if (currentCount < 10) {
-    await performTransaction(user.id, tokenAmount, "credit", actionDescription, t);
+    await performTransaction(
+      user.id,
+      tokenAmount,
+      'credit',
+      actionDescription,
+      t
+    );
 
     // Always assign a new object for Sequelize JSONB to detect change
     user.dailyActions = {
@@ -56,35 +62,44 @@ export const handleUserAction = async (
 // Deducts tokens for generation actions.
 export const deductTokensForGeneration = async (
   userId: string,
-  type: "image" | "video" | "training",
+  type: 'image' | 'video' | 'training',
   t: Transaction
 ) => {
   let cost = 0;
-  let desc = "";
+  let desc = '';
   switch (type) {
-    case "image": cost = 15; desc = "Generation: Image"; break;
-    case "video": cost = 40; desc = "Generation: Video"; break;
-    case "training": cost = 150; desc = "Model Training"; break;
+    case 'image':
+      cost = 15;
+      desc = 'Generation: Image';
+      break;
+    case 'video':
+      cost = 40;
+      desc = 'Generation: Video';
+      break;
+    case 'training':
+      cost = 150;
+      desc = 'Model Training';
+      break;
   }
-  
-  await performTransaction(userId, cost, "debit", desc, t);
+
+  await performTransaction(userId, cost, 'debit', desc, t);
 };
 
 // Helper function to recursively fetch replies
 export const fetchReplies = async (
   comment: Comment,
-  userId: string, // [FIX] Pass userId to check likes on replies
+  userId: string // [FIX] Pass userId to check likes on replies
 ) => {
   const replies = await Comment.findAll({
     where: { parentId: comment.id },
     include: [
       {
         model: User,
-        as: "author",
-        attributes: ["id", "username", "fullname", "avatar"],
+        as: 'author',
+        attributes: ['id', 'username', 'fullname', 'avatar'],
       },
     ],
-    order: [["createdAt", "ASC"]],
+    order: [['createdAt', 'ASC']],
   });
 
   // [FIX] Check likes for replies

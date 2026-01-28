@@ -1,12 +1,12 @@
-import crypto from "crypto";
-import bcrypt from "bcrypt";
+import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 
-import { User } from "../../user/models/User";
-import { logger } from "sequelize/lib/utils/logger";
-import { sendPasswordResetEmail } from "../../../shared/scripts/email";
+import { User } from '../../user/models/User';
+import { logger } from 'sequelize/lib/utils/logger';
+import { sendPasswordResetEmail } from '../../../shared/scripts/email';
 
 export const createPasswordResetToken = async (user: User): Promise<string> => {
-  const resetToken = crypto.randomBytes(32).toString("hex");
+  const resetToken = crypto.randomBytes(32).toString('hex');
 
   user.passwordResetToken = await bcrypt.hash(resetToken, 10);
   user.passwordResetTokenExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
@@ -21,7 +21,7 @@ export const handleForgotPassword = async (email: string) => {
   if (!user) {
     // Don't reveal that the user doesn't exist
     logger.error(
-      "Password reset requested for non-existent or unverified email.",
+      'Password reset requested for non-existent or unverified email.'
     );
     return;
   }

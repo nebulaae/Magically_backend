@@ -1,18 +1,18 @@
-import { Op } from "sequelize";
-import { User } from "../models/User";
-import { Subscription } from "../models/Subscription";
-import { Publication } from "../../publication/models/Publication";
+import { Op } from 'sequelize';
+import { User } from '../models/User';
+import { Subscription } from '../models/Subscription';
+import { Publication } from '../../publication/models/Publication';
 
 export const findUserBy = (where: { [key: string]: any }) => {
   return User.findOne({
     where,
-    attributes: { exclude: ["password", "email"] },
+    attributes: { exclude: ['password', 'email'] },
   });
 };
 
 export const findUserByPk = (
   userId: string,
-  exclude: string[] = ["password"],
+  exclude: string[] = ['password']
 ) => {
   return User.findByPk(userId, { attributes: { exclude } });
 };
@@ -23,11 +23,11 @@ export const findUserPublications = (userId: string) => {
     include: [
       {
         model: User,
-        as: "author",
-        attributes: ["id", "username", "fullname", "avatar"],
+        as: 'author',
+        attributes: ['id', 'username', 'fullname', 'avatar'],
       },
     ],
-    order: [["createdAt", "DESC"]],
+    order: [['createdAt', 'DESC']],
   });
 };
 
@@ -48,8 +48,8 @@ export const getFollowers = (userId: string) => {
     include: [
       {
         model: User,
-        as: "Followers",
-        attributes: ["id", "username", "fullname", "avatar"],
+        as: 'Followers',
+        attributes: ['id', 'username', 'fullname', 'avatar'],
         through: { attributes: [] },
       },
     ],
@@ -61,8 +61,8 @@ export const getFollowing = (userId: string) => {
     include: [
       {
         model: User,
-        as: "Following",
-        attributes: ["id", "username", "fullname", "avatar"],
+        as: 'Following',
+        attributes: ['id', 'username', 'fullname', 'avatar'],
         through: { attributes: [] },
       },
     ],
@@ -82,7 +82,7 @@ export const searchUsersByQuery = (query: string, currentUserId: string) => {
       ],
       id: { [Op.ne]: currentUserId },
     },
-    attributes: ["id", "username", "fullname", "bio", "avatar"],
+    attributes: ['id', 'username', 'fullname', 'bio', 'avatar'],
     limit: 10,
   });
 };

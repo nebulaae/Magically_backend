@@ -1,14 +1,14 @@
-import dotenv from "dotenv";
-import nodemailer from "nodemailer";
-import logger from "../utils/logger";
+import dotenv from 'dotenv';
+import nodemailer from 'nodemailer';
+import logger from '../utils/logger';
 
 dotenv.config();
 
 // Reusable transporter object using credentials from .env
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT || "587", 10),
-  secure: process.env.EMAIL_PORT === "465", // true for 465, false for other ports
+  port: parseInt(process.env.EMAIL_PORT || '587', 10),
+  secure: process.env.EMAIL_PORT === '465', // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -18,9 +18,9 @@ const transporter = nodemailer.createTransport({
 // --- Send Verification OTP Email ---
 export const sendVerificationEmail = async (to: string, otp: string) => {
   const mailOptions = {
-    from: "Volshebny no-reply",
+    from: 'Volshebny no-reply',
     to,
-    subject: "Верификация почты",
+    subject: 'Верификация почты',
     html: `
         <div style="font-family: Arial, sans-serif; background: #f6f8fb; padding: 32px;">
             <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px;">
@@ -53,9 +53,9 @@ export const sendPasswordResetEmail = async (to: string, token: string) => {
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
 
   const mailOptions = {
-    from: "Volshebny no-reply",
+    from: 'Volshebny no-reply',
     to,
-    subject: "Запрос на восстановление пароля",
+    subject: 'Запрос на восстановление пароля',
     html: `
         <div style="font-family: Arial, sans-serif; background: #f6f8fb; padding: 32px;">
             <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px;">
@@ -90,9 +90,9 @@ export const sendPasswordResetEmail = async (to: string, token: string) => {
 
 const createTransporter = async () => {
   return nodemailer.createTransport({
-    service: "gmail",
+    service: 'gmail',
     auth: {
-      type: "OAuth2",
+      type: 'OAuth2',
       user: process.env.EMAIL_USER, // ваш gmail
       clientId: process.env.GMAIL_CLIENT_ID,
       clientSecret: process.env.GMAIL_CLIENT_SECRET,
@@ -101,7 +101,11 @@ const createTransporter = async () => {
   });
 };
 
-export const sendSystemAlert = async (to: string, subject: string, text: string) => {
+export const sendSystemAlert = async (
+  to: string,
+  subject: string,
+  text: string
+) => {
   try {
     const transporter = await createTransporter();
     await transporter.sendMail({

@@ -9,14 +9,14 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 export const verifyTelegramWebAppData = (initDataRaw: string) => {
   const params = new URLSearchParams(initDataRaw);
 
-  const hash = params.get("hash");
+  const hash = params.get('hash');
   if (!hash) return null;
 
-  const authDate = Number(params.get("auth_date"));
+  const authDate = Number(params.get('auth_date'));
   const now = Math.floor(Date.now() / 1000);
 
   if (Math.abs(now - authDate) > 300) {
-    console.log("InitData outdated");
+    console.log('InitData outdated');
     return null;
   }
 
@@ -24,35 +24,35 @@ export const verifyTelegramWebAppData = (initDataRaw: string) => {
   const data: string[] = [];
 
   params.forEach((value, key) => {
-    if (key === "hash") return;
+    if (key === 'hash') return;
     data.push(`${key}=${value}`);
   });
 
   data.sort();
-  const dataCheckString = data.join("\n");
+  const dataCheckString = data.join('\n');
 
   // secret_key = HMAC_SHA256(bot_token, "WebAppData")
   const secretKey = crypto
-    .createHmac("sha256", "WebAppData")
+    .createHmac('sha256', 'WebAppData')
     .update(BOT_TOKEN)
     .digest();
 
   const computedHash = crypto
-    .createHmac("sha256", secretKey)
+    .createHmac('sha256', secretKey)
     .update(dataCheckString)
-    .digest("hex");
+    .digest('hex');
 
   if (computedHash !== hash) {
-    console.log("Hash mismatch");
+    console.log('Hash mismatch');
     return null;
   }
 
   // parse user
-  const userRaw = params.get("user");
+  const userRaw = params.get('user');
   if (!userRaw) return null;
 
-  console.log("Telegram WebApp VALIDATED");
-  console.log("User:", userRaw);
+  console.log('Telegram WebApp VALIDATED');
+  console.log('User:', userRaw);
 
   return JSON.parse(decodeURIComponent(userRaw));
 };
@@ -62,20 +62,17 @@ export const verifyTelegramLoginWidget = (data: any) => {
 
   const dataCheckString = Object.keys(rest)
     .sort()
-    .map(key => `${key}=${rest[key]}`)
-    .join("\n");
+    .map((key) => `${key}=${rest[key]}`)
+    .join('\n');
 
-  const secret = crypto
-    .createHash("sha256")
-    .update(BOT_TOKEN)
-    .digest();
+  const secret = crypto.createHash('sha256').update(BOT_TOKEN).digest();
 
   const computedHash = crypto
-    .createHmac("sha256", secret)
+    .createHmac('sha256', secret)
     .update(dataCheckString)
-    .digest("hex");
+    .digest('hex');
 
   if (computedHash !== hash) return null;
 
   return rest;
-}
+};
