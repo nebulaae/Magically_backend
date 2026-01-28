@@ -52,6 +52,7 @@ export interface BePaidCheckoutRequest {
       amount: number;
       description: string;
       expired_at?: string;
+      tracking_id?: string;
       additional_data?: {
         receipt_text?: string[];
       };
@@ -94,6 +95,7 @@ export interface BePaidWebhookNotification {
     payment_method_type?: string;
     payment_method?: any;
     billing_address?: any;
+    tracking_id: string;
     customer?: {
       email?: string;
       first_name?: string;
@@ -110,6 +112,7 @@ export interface BePaidWebhookNotification {
     test: boolean;
     created_at: string;
     updated_at: string;
+    tracking_id: string;
   };
   order?: {
     uid: string;
@@ -169,6 +172,7 @@ export const createPaymentToken = async (
         currency: currency.toUpperCase(),
         amount: Math.round(amount * 100), // bePaid принимает сумму в копейках/центах
         description: description,
+        tracking_id: paymentId
       },
       customer: options?.customer,
     },
