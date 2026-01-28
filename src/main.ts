@@ -63,6 +63,18 @@ app.use(
 );
 app.use(passport.initialize());
 app.use(cookieParser());
+
+// Middleware для сохранения raw body для webhook путей (нужно для проверки подписи)
+app.use(
+  "/api/v1/payment/webhook/bepaid",
+  express.raw({ type: "application/json" }),
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Сохраняем raw body в req.rawBody для дальнейшего использования
+    (req as any).rawBody = req.body;
+    next();
+  },
+);
+
 app.use(express.json());
 app.use(metricsMiddleware);
 app.use(express.urlencoded({ extended: true }));
