@@ -148,8 +148,7 @@ export const createPaymentToken = async (
   // Базовые настройки URL для уведомлений и возврата
   const baseUrl = BACKEND_URL || "http://localhost:5000";
   const frontendUrl = FRONTEND_URL || "http://localhost:3000";
-  const notificationUrl = `${baseUrl}/api/payment/webhook/bepaid`;
-  const returnUrl = `${baseUrl}/payment/return`;
+  const notificationUrl = `${baseUrl}/api/v1/payment/webhook/bepaid`;
 
   const requestData: BePaidCheckoutRequest = {
     checkout: {
