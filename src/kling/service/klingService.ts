@@ -1,17 +1,17 @@
-import fs from "fs";
-import path from "path";
-import http from "http";
-import axios from "axios";
-import dotenv from "dotenv";
-import logger from "../../../shared/utils/logger";
-import { v4 as uuidv4 } from "uuid";
-import { Transaction } from "sequelize";
-import { publicDir } from "../../../shared/utils/paths";
-import * as klingRepository from "../repository/klingRepository";
+import fs from 'fs';
+import path from 'path';
+import http from 'http';
+import axios from 'axios';
+import dotenv from 'dotenv';
+import logger from '../../../shared/utils/logger';
+import { v4 as uuidv4 } from 'uuid';
+import { Transaction } from 'sequelize';
+import { publicDir } from '../../../shared/utils/paths';
+import * as klingRepository from '../repository/klingRepository';
 
 dotenv.config();
 
-const KLING_API_URL = "https://api.unifically.com/kling/v1/videos";
+const KLING_API_URL = 'https://api.unifically.com/kling/v1/videos';
 const KLING_API_KEY = process.env.KLING_API;
 const httpAgent = new http.Agent({ keepAlive: true });
 
@@ -30,21 +30,21 @@ export const generateKlingVideo = async (payload: KlingGenerationPayload) => {
     const response = await axios.post(`${KLING_API_URL}/generations`, payload, {
       headers: {
         Authorization: `Bearer ${KLING_API_KEY}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       httpAgent,
     });
 
-    console.log(response.data)
+    console.log(response.data);
 
     return response.data;
   } catch (error) {
-    const errorMessage = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-    logger.error(
-      `Error generating Kling video: ${errorMessage}`,
-    );
-    throw new Error("Failed to start Kling video generation.");
-  };
+    const errorMessage = error.response?.data
+      ? JSON.stringify(error.response.data)
+      : error.message;
+    logger.error(`Error generating Kling video: ${errorMessage}`);
+    throw new Error('Failed to start Kling video generation.');
+  }
 };
 
 export const getKlingVideoStatus = async (taskId: string) => {
@@ -57,17 +57,17 @@ export const getKlingVideoStatus = async (taskId: string) => {
     return response.data;
   } catch (error: any) {
     logger.error(
-      `Error getting Kling video status for task ${taskId}: ${error.response?.data || error.message}`,
+      `Error getting Kling video status for task ${taskId}: ${error.response?.data || error.message}`
     );
     if (error.response && error.response.data) {
       return error.response.data;
     }
-    throw new Error("Failed to get Kling video generation status.");
+    throw new Error('Failed to get Kling video generation status.');
   }
 };
 
 const downloadKlingVideo = async (videoUrl: string): Promise<string> => {
-  const videoDir = publicDir("videos", "kling");
+  const videoDir = publicDir('videos', 'kling');
   if (!fs.existsSync(videoDir)) fs.mkdirSync(videoDir, { recursive: true });
 
   const filename = `${uuidv4()}.mp4`;
@@ -75,19 +75,19 @@ const downloadKlingVideo = async (videoUrl: string): Promise<string> => {
 
   try {
     const response = await axios({
-      method: "GET",
+      method: 'GET',
       url: videoUrl,
-      responseType: "stream",
+      responseType: 'stream',
     });
     const writer = fs.createWriteStream(outputPath);
     response.data.pipe(writer);
     return new Promise((resolve, reject) => {
-      writer.on("finish", () => resolve(`/videos/kling/${filename}`));
-      writer.on("error", reject);
+      writer.on('finish', () => resolve(`/videos/kling/${filename}`));
+      writer.on('error', reject);
     });
   } catch (error) {
     logger.error(`Error downloading Kling video: ${error.message}`);
-    throw new Error("Failed to download Kling video.");
+    throw new Error('Failed to download Kling video.');
   }
 };
 
@@ -100,18 +100,24 @@ export const processFinalVideo = async (
 ) => {
   const downloadedVideoPath = await downloadKlingVideo(videoUrl);
   if (publish) {
-    return klingRepository.createPublication({
-      userId,
-      content: prompt || "Generated Video",
-      videoUrl: downloadedVideoPath,
-      category: "kling",
-    }, t);
+    return klingRepository.createPublication(
+      {
+        userId,
+        content: prompt || 'Generated Video',
+        videoUrl: downloadedVideoPath,
+        category: 'kling',
+      },
+      t
+    );
   } else {
-    return klingRepository.createGalleryItem({
-      userId,
-      prompt: prompt || "Generated Video",
-      imageUrl: downloadedVideoPath,
-      generationType: "video-kling",
-    }, t);
+    return klingRepository.createGalleryItem(
+      {
+        userId,
+        prompt: prompt || 'Generated Video',
+        imageUrl: downloadedVideoPath,
+        generationType: 'video-kling',
+      },
+      t
+    );
   }
 };

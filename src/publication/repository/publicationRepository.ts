@@ -1,17 +1,17 @@
-import { Op } from "sequelize";
-import { Publication } from "../models/Publication";
-import { User } from "../../user/models/User";
-import { Subscription } from "../../user/models/Subscription";
-import { LikedPublication } from "../models/LikedPublication";
-import { Transaction } from "sequelize";
+import { Op } from 'sequelize';
+import { Publication } from '../models/Publication';
+import { User } from '../../user/models/User';
+import { Subscription } from '../../user/models/Subscription';
+import { LikedPublication } from '../models/LikedPublication';
+import { Transaction } from 'sequelize';
 
 export const findPublicationById = (publicationId: string) => {
   return Publication.findByPk(publicationId, {
     include: [
       {
         model: User,
-        as: "author",
-        attributes: ["id", "username", "fullname", "avatar"],
+        as: 'author',
+        attributes: ['id', 'username', 'fullname', 'avatar'],
       },
     ],
   });
@@ -28,8 +28,8 @@ export const findAndCountAllPublications = (options: {
     include: [
       {
         model: User,
-        as: "author",
-        attributes: ["id", "username", "fullname", "avatar"],
+        as: 'author',
+        attributes: ['id', 'username', 'fullname', 'avatar'],
       },
     ],
   });
@@ -37,7 +37,7 @@ export const findAndCountAllPublications = (options: {
 
 export const findSubscriptions = (
   followerId: string,
-  followingIds: string[],
+  followingIds: string[]
 ) => {
   return Subscription.findAll({
     where: { followerId, followingId: { [Op.in]: followingIds } },
@@ -52,7 +52,7 @@ export const findLikes = (userId: string, publicationIds: string[]) => {
 
 export const findOneSubscription = (
   followerId: string,
-  followingId: string,
+  followingId: string
 ) => {
   return Subscription.findOne({ where: { followerId, followingId } });
 };
@@ -67,7 +67,7 @@ export const createPublication = (data: Partial<Publication>) => {
 
 export const updatePublication = (
   publication: Publication,
-  content: string,
+  content: string
 ) => {
   publication.content = content;
   return publication.save();
@@ -80,7 +80,7 @@ export const deletePublication = (publication: Publication) => {
 export const createLike = (
   userId: string,
   publicationId: string,
-  transaction: Transaction,
+  transaction: Transaction
 ) => {
   return LikedPublication.create({ userId, publicationId }, { transaction });
 };
@@ -88,7 +88,7 @@ export const createLike = (
 export const deleteLike = (
   userId: string,
   publicationId: string,
-  transaction: Transaction,
+  transaction: Transaction
 ) => {
   return LikedPublication.destroy({
     where: { userId, publicationId },
@@ -110,12 +110,12 @@ export const findLikedPublicationsByUserId = (userId: string) => {
         include: [
           {
             model: User,
-            as: "author",
-            attributes: ["id", "username", "fullname", "avatar"],
+            as: 'author',
+            attributes: ['id', 'username', 'fullname', 'avatar'],
           },
         ],
       },
     ],
-    order: [[Publication, "createdAt", "DESC"]],
+    order: [[Publication, 'createdAt', 'DESC']],
   });
 };
