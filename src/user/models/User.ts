@@ -1,8 +1,8 @@
-import bcrypt from "bcrypt";
-import db from "../../../shared/config/database";
-import type { Comment } from "../../comment/models/Comment";
-import { ReplicateStatus } from "../../../shared/types/types";
-import type { Publication } from "../../publication/models/Publication";
+import bcrypt from 'bcrypt';
+import db from '../../../shared/config/database';
+import type { Comment } from '../../comment/models/Comment';
+import { ReplicateStatus } from '../../../shared/types/types';
+import type { Publication } from '../../publication/models/Publication';
 import {
   Model,
   DataTypes,
@@ -10,7 +10,7 @@ import {
   BelongsToManyAddAssociationMixin,
   BelongsToManyRemoveAssociationMixin,
   BelongsToManyGetAssociationsMixin,
-} from "sequelize";
+} from 'sequelize';
 
 // --- User Model Attributes ---
 export interface UserAttributes {
@@ -27,7 +27,7 @@ export interface UserAttributes {
     count: number;
     lastReset: Date;
   };
-  role: "user" | "admin";
+  role: 'user' | 'admin';
   isBlocked: boolean;
   verified: boolean;
   telegramId?: string;
@@ -55,7 +55,7 @@ export class User extends Model<UserAttributes> implements UserAttributes {
     count: number;
     lastReset: Date;
   };
-  public role!: "user" | "admin";
+  public role!: 'user' | 'admin';
   public isBlocked!: boolean;
   public verified!: boolean;
   public telegramId?: string;
@@ -155,8 +155,8 @@ User.init(
       defaultValue: { count: 0, lastReset: new Date() },
     },
     role: {
-      type: DataTypes.ENUM("user", "admin"),
-      defaultValue: "user",
+      type: DataTypes.ENUM('user', 'admin'),
+      defaultValue: 'user',
       allowNull: false,
     },
     isBlocked: {
@@ -198,8 +198,8 @@ User.init(
   },
   {
     sequelize: db,
-    modelName: "User",
-    tableName: "users",
+    modelName: 'User',
+    tableName: 'users',
     hooks: {
       beforeCreate: async (user: User) => {
         if (user.password) {
@@ -208,11 +208,11 @@ User.init(
         }
       },
       beforeUpdate: async (user: User) => {
-        if (user.changed("password") && user.password) {
+        if (user.changed('password') && user.password) {
           const salt = await bcrypt.genSalt(10);
           user.password = await bcrypt.hash(user.password, salt);
         }
       },
     },
-  },
+  }
 );

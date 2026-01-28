@@ -1,6 +1,6 @@
-import db from "../../../shared/config/database";
-import type { User } from "../../user/models/User";
-import { Model, DataTypes, BelongsToGetAssociationMixin } from "sequelize";
+import db from '../../../shared/config/database';
+import type { User } from '../../user/models/User';
+import { Model, DataTypes, BelongsToGetAssociationMixin } from 'sequelize';
 
 // --- Gallery Model Attributes ---
 export interface GalleryAttributes {
@@ -44,8 +44,8 @@ Gallery.init(
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: "users",
-        key: "id",
+        model: 'users',
+        key: 'id',
       },
     },
     prompt: {
@@ -63,7 +63,7 @@ Gallery.init(
   },
   {
     sequelize: db,
-    modelName: "Gallery",
-    tableName: "galleries",
-  },
+    modelName: 'Gallery',
+    tableName: 'galleries',
+  }
 );

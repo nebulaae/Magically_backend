@@ -1,55 +1,55 @@
-import express from "express";
-import * as commentController from "./controller/commentController";
+import express from 'express';
+import * as commentController from './controller/commentController';
 
-import { auth } from "../../shared/middleware/auth";
-import { asyncHandler } from "../../shared/utils/asyncHandler";
-import { optionalAuth } from "../../shared/middleware/optionalAuth";
+import { auth } from '../../shared/middleware/auth';
+import { asyncHandler } from '../../shared/utils/asyncHandler';
+import { optionalAuth } from '../../shared/middleware/optionalAuth';
 
 const router = express.Router();
 
 // Create a comment - REQUIRES AUTH
 router.post(
-  "/:publicationId/comments",
+  '/:publicationId/comments',
   auth,
-  asyncHandler(commentController.createComment),
+  asyncHandler(commentController.createComment)
 );
 
 // Get all comments for a publication - PUBLIC with optional auth
 router.get(
-  "/:publicationId/comments",
+  '/:publicationId/comments',
   optionalAuth,
-  asyncHandler(commentController.getCommentsForPublication),
+  asyncHandler(commentController.getCommentsForPublication)
 );
 
 // Reply to an existing comment - REQUIRES AUTH
 router.post(
-  "/:commentId/reply",
+  '/:commentId/reply',
   auth,
-  asyncHandler(commentController.replyToComment),
+  asyncHandler(commentController.replyToComment)
 );
 
 // Update a comment - REQUIRES AUTH
-router.put("/:commentId", auth, asyncHandler(commentController.updateComment));
+router.put('/:commentId', auth, asyncHandler(commentController.updateComment));
 
 // Delete a comment - REQUIRES AUTH
 router.delete(
-  "/:commentId",
+  '/:commentId',
   auth,
-  asyncHandler(commentController.deleteComment),
+  asyncHandler(commentController.deleteComment)
 );
 
 // Like a comment - REQUIRES AUTH
 router.post(
-  "/:commentId/like",
+  '/:commentId/like',
   auth,
-  asyncHandler(commentController.likeComment),
+  asyncHandler(commentController.likeComment)
 );
 
 // Unlike a comment - REQUIRES AUTH
 router.delete(
-  "/:commentId/unlike",
+  '/:commentId/unlike',
   auth,
-  asyncHandler(commentController.unlikeComment),
+  asyncHandler(commentController.unlikeComment)
 );
 
 export default router;

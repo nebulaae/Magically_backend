@@ -1,5 +1,5 @@
-import db from "../../../shared/config/database";
-import { Model, DataTypes } from "sequelize";
+import db from '../../../shared/config/database';
+import { Model, DataTypes } from 'sequelize';
 
 export interface FluxModelAttributes {
   id: string;
@@ -12,7 +12,10 @@ export interface FluxModelAttributes {
   updatedAt?: Date;
 }
 
-export class FluxModel extends Model<FluxModelAttributes> implements FluxModelAttributes {
+export class FluxModel
+  extends Model<FluxModelAttributes>
+  implements FluxModelAttributes
+{
   public id!: string;
   public userId!: string;
   public name!: string;
@@ -34,7 +37,7 @@ FluxModel.init(
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: { model: "users", key: "id" },
+      references: { model: 'users', key: 'id' },
     },
     name: {
       type: DataTypes.STRING,
@@ -58,13 +61,13 @@ FluxModel.init(
           if (!Array.isArray(value)) {
             throw new Error('imagePaths must be an array');
           }
-        }
-      }
+        },
+      },
     },
   },
   {
     sequelize: db,
-    modelName: "FluxModel",
-    tableName: "flux_models",
+    modelName: 'FluxModel',
+    tableName: 'flux_models',
   }
 );

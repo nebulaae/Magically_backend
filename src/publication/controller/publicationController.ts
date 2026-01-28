@@ -1,7 +1,7 @@
-import { Request, Response } from "express";
-import * as publicationService from "../service/publicationService";
-import * as apiResponse from "../../../shared/utils/apiResponse";
-import logger from "../../../shared/utils/logger";
+import { Request, Response } from 'express';
+import * as publicationService from '../service/publicationService';
+import * as apiResponse from '../../../shared/utils/apiResponse';
+import logger from '../../../shared/utils/logger';
 
 export const getPublicationById = async (req: Request, res: Response) => {
   try {
@@ -9,15 +9,15 @@ export const getPublicationById = async (req: Request, res: Response) => {
     const userId = req.user?.id || null;
     const publication = await publicationService.getPublicationById(
       publicationId,
-      userId,
+      userId
     );
     apiResponse.success(res, publication);
   } catch (error) {
     logger.error(`Get publication by ID error: ${error.message}`);
-    if (error.message.includes("not found")) {
+    if (error.message.includes('not found')) {
       return apiResponse.notFound(res, error.message);
     }
-    apiResponse.internalError(res, "Server error");
+    apiResponse.internalError(res, 'Server error');
   }
 };
 
@@ -25,10 +25,10 @@ export const getAllPublications = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id || null;
     const {
-      page = "1",
-      limit = "10",
-      sortBy = "newest",
-      hashtag = "",
+      page = '1',
+      limit = '10',
+      sortBy = 'newest',
+      hashtag = '',
     } = req.query as { [key: string]: string };
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -38,12 +38,12 @@ export const getAllPublications = async (req: Request, res: Response) => {
       pageNumber,
       limitNumber,
       sortBy,
-      hashtag,
+      hashtag
     );
     apiResponse.success(res, result);
   } catch (error) {
     logger.error(`Get all publications error: ${error.message}`);
-    apiResponse.internalError(res, "Server error");
+    apiResponse.internalError(res, 'Server error');
   }
 };
 
@@ -58,23 +58,23 @@ export const createPublication = async (req: Request, res: Response) => {
     if (!content && !imageUrl) {
       return apiResponse.badRequest(
         res,
-        "Publication must have content or an image.",
+        'Publication must have content or an image.'
       );
     }
     const publication = await publicationService.createPublication(
       userId,
       content,
-      imageUrl,
+      imageUrl
     );
     apiResponse.success(
       res,
       { publication },
-      "Publication created successfully",
-      201,
+      'Publication created successfully',
+      201
     );
   } catch (error) {
     logger.error(`Create publication error: ${error.message}`);
-    apiResponse.internalError(res, "Server error during publication creation");
+    apiResponse.internalError(res, 'Server error during publication creation');
   }
 };
 
@@ -86,20 +86,20 @@ export const updatePublication = async (req: Request, res: Response) => {
     const publication = await publicationService.updatePublication(
       publicationId,
       userId,
-      content,
+      content
     );
     apiResponse.success(
       res,
       { publication },
-      "Publication updated successfully",
+      'Publication updated successfully'
     );
   } catch (error) {
     logger.error(`Update publication error: ${error.message}`);
-    if (error.message.includes("not found"))
+    if (error.message.includes('not found'))
       return apiResponse.notFound(res, error.message);
-    if (error.message.includes("not authorized"))
+    if (error.message.includes('not authorized'))
       return apiResponse.forbidden(res, error.message);
-    apiResponse.internalError(res, "Server error");
+    apiResponse.internalError(res, 'Server error');
   }
 };
 
@@ -109,16 +109,16 @@ export const deletePublication = async (req: Request, res: Response) => {
     const userId = req.user.id;
     const result = await publicationService.deletePublication(
       publicationId,
-      userId,
+      userId
     );
     apiResponse.success(res, null, result.message);
   } catch (error) {
     logger.error(`Delete publication error: ${error.message}`);
-    if (error.message.includes("not found"))
+    if (error.message.includes('not found'))
       return apiResponse.notFound(res, error.message);
-    if (error.message.includes("not authorized"))
+    if (error.message.includes('not authorized'))
       return apiResponse.forbidden(res, error.message);
-    apiResponse.internalError(res, "Server error while deleting publication.");
+    apiResponse.internalError(res, 'Server error while deleting publication.');
   }
 };
 
@@ -128,20 +128,20 @@ export const likePublication = async (req: Request, res: Response) => {
     const userId = req.user.id;
     const result = await publicationService.likePublication(
       publicationId,
-      userId,
+      userId
     );
     apiResponse.success(res, null, result.message);
   } catch (error) {
     logger.error(`Like publication error: ${error.message}`);
-    if (error.name === "SequelizeUniqueConstraintError") {
+    if (error.name === 'SequelizeUniqueConstraintError') {
       return apiResponse.conflict(
         res,
-        "You have already liked this publication.",
+        'You have already liked this publication.'
       );
     }
-    if (error.message.includes("not found"))
+    if (error.message.includes('not found'))
       return apiResponse.notFound(res, error.message);
-    apiResponse.internalError(res, "Server error");
+    apiResponse.internalError(res, 'Server error');
   }
 };
 
@@ -151,16 +151,16 @@ export const unlikePublication = async (req: Request, res: Response) => {
     const userId = req.user.id;
     const result = await publicationService.unlikePublication(
       publicationId,
-      userId,
+      userId
     );
     apiResponse.success(res, null, result.message);
   } catch (error) {
     logger.error(`Unlike publication error: ${error.message}`);
-    if (error.message === "Not liked")
-      return apiResponse.conflict(res, "You have not liked this publication.");
-    if (error.message.includes("not found"))
+    if (error.message === 'Not liked')
+      return apiResponse.conflict(res, 'You have not liked this publication.');
+    if (error.message.includes('not found'))
       return apiResponse.notFound(res, error.message);
-    apiResponse.internalError(res, "Server error");
+    apiResponse.internalError(res, 'Server error');
   }
 };
 
@@ -172,8 +172,8 @@ export const getMyLikedPublications = async (req: Request, res: Response) => {
     apiResponse.success(res, publications);
   } catch (error) {
     logger.error(`Get liked publications error: ${error.message}`);
-    if (error.message.includes("not found"))
+    if (error.message.includes('not found'))
       return apiResponse.notFound(res, error.message);
-    apiResponse.internalError(res, "Server error");
+    apiResponse.internalError(res, 'Server error');
   }
 };

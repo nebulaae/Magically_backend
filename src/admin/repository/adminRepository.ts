@@ -1,13 +1,13 @@
-import { User } from "../../user/models/User";
-import { Publication } from "../../publication/models/Publication";
-import db from "../../../shared/config/database";
+import { User } from '../../user/models/User';
+import { Publication } from '../../publication/models/Publication';
+import db from '../../../shared/config/database';
 
 export const findAdminByUsername = (username: string) => {
-  return User.findOne({ where: { username, role: "admin" } });
+  return User.findOne({ where: { username, role: 'admin' } });
 };
 
 export const findAllUsers = () => {
-  return User.findAll({ attributes: { exclude: ["password"] } });
+  return User.findAll({ attributes: { exclude: ['password'] } });
 };
 
 export const findUserById = (userId: string) => {
@@ -33,13 +33,13 @@ export const setPublicationAsPhotoOfTheDay = async (publicationId: string) => {
     // Unset existing photo of the day
     await Publication.update(
       { isPhotoOfTheDay: false },
-      { where: { isPhotoOfTheDay: true }, transaction: t },
+      { where: { isPhotoOfTheDay: true }, transaction: t }
     );
 
     // Set the new one
     const [updatedCount] = await Publication.update(
       { isPhotoOfTheDay: true },
-      { where: { id: publicationId }, transaction: t },
+      { where: { id: publicationId }, transaction: t }
     );
 
     await t.commit();

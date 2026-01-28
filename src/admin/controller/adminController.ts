@@ -1,17 +1,17 @@
-import { Request, Response } from "express";
-import * as adminService from "../service/adminService";
-import * as apiResponse from "../../../shared/utils/apiResponse";
-import logger from "../../../shared/utils/logger";
+import { Request, Response } from 'express';
+import * as adminService from '../service/adminService';
+import * as apiResponse from '../../../shared/utils/apiResponse';
+import logger from '../../../shared/utils/logger';
 
 export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body;
   const result = await adminService.loginAdmin(username, password);
 
   if (!result) {
-    return apiResponse.unauthorized(res, "Invalid admin credentials");
+    return apiResponse.unauthorized(res, 'Invalid admin credentials');
   }
 
-  apiResponse.success(res, result, "Admin login successful.");
+  apiResponse.success(res, result, 'Admin login successful.');
 };
 
 export const getAllUsers = async (_req: Request, res: Response) => {
@@ -21,10 +21,12 @@ export const getAllUsers = async (_req: Request, res: Response) => {
 
 export const blockUser = async (req: Request, res: Response) => {
   const { userId } = req.params;
-  const user = await adminService.blockUser(Array.isArray(userId) ? userId[0] : userId);
+  const user = await adminService.blockUser(
+    Array.isArray(userId) ? userId[0] : userId
+  );
 
   if (!user) {
-    return apiResponse.notFound(res, "User not found");
+    return apiResponse.notFound(res, 'User not found');
   }
 
   apiResponse.success(res, null, `${user.username} has been blocked`);
@@ -32,10 +34,12 @@ export const blockUser = async (req: Request, res: Response) => {
 
 export const unblockUser = async (req: Request, res: Response) => {
   const { userId } = req.params;
-  const user = await adminService.unblockUser(Array.isArray(userId) ? userId[0] : userId);
+  const user = await adminService.unblockUser(
+    Array.isArray(userId) ? userId[0] : userId
+  );
 
   if (!user) {
-    return apiResponse.notFound(res, "User not found");
+    return apiResponse.notFound(res, 'User not found');
   }
 
   apiResponse.success(res, null, `${user.username} has been unblocked`);
@@ -43,42 +47,54 @@ export const unblockUser = async (req: Request, res: Response) => {
 
 export const deletePublication = async (req: Request, res: Response) => {
   const { publicationId } = req.params;
-  const result = await adminService.deletePublication(Array.isArray(publicationId) ? publicationId[0] : publicationId);
+  const result = await adminService.deletePublication(
+    Array.isArray(publicationId) ? publicationId[0] : publicationId
+  );
 
   if (!result) {
-    return apiResponse.notFound(res, "Publication not found");
+    return apiResponse.notFound(res, 'Publication not found');
   }
 
-  apiResponse.success(res, null, "Publication was deleted successfully");
+  apiResponse.success(res, null, 'Publication was deleted successfully');
 };
 
 export const setPhotoOfTheDay = async (req: Request, res: Response) => {
   const { publicationId } = req.params;
   try {
-    const success = await adminService.setPhotoOfTheDay(Array.isArray(publicationId) ? publicationId[0] : publicationId);
+    const success = await adminService.setPhotoOfTheDay(
+      Array.isArray(publicationId) ? publicationId[0] : publicationId
+    );
     if (!success) {
-      return apiResponse.notFound(res, "Publication not found");
+      return apiResponse.notFound(res, 'Publication not found');
     }
-    apiResponse.success(res, null, "Photo of the day was set successfully");
+    apiResponse.success(res, null, 'Photo of the day was set successfully');
   } catch (error) {
     logger.error(`Set Photo of the Day error: ${error.message}`);
-    apiResponse.internalError(res, "Error while setting Photo of the Day.");
+    apiResponse.internalError(res, 'Error while setting Photo of the Day.');
   }
 };
 
 export const giveTokens = async (req: Request, res: Response) => {
   const { userId } = req.params;
   const { amount, reason } = req.body;
-  if (!amount || !reason) return apiResponse.badRequest(res, "Amount and reason are required");
-  
-  await adminService.addTokensToUser(req.user.id, Array.isArray(userId) ? userId[0] : userId, Number(amount), reason);
-  apiResponse.success(res, null, "Tokens added successfully");
+  if (!amount || !reason)
+    return apiResponse.badRequest(res, 'Amount and reason are required');
+
+  await adminService.addTokensToUser(
+    req.user.id,
+    Array.isArray(userId) ? userId[0] : userId,
+    Number(amount),
+    reason
+  );
+  apiResponse.success(res, null, 'Tokens added successfully');
 };
 
 export const deleteUserComment = async (req: Request, res: Response) => {
   const { commentId } = req.params;
-  await adminService.deleteComment(Array.isArray(commentId) ? commentId[0] : commentId);
-  apiResponse.success(res, null, "Comment deleted by admin");
+  await adminService.deleteComment(
+    Array.isArray(commentId) ? commentId[0] : commentId
+  );
+  apiResponse.success(res, null, 'Comment deleted by admin');
 };
 
 export const getAnalytics = async (_req: Request, res: Response) => {

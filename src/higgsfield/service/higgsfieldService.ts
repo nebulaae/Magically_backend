@@ -1,17 +1,17 @@
-import fs from "fs";
-import path from "path";
-import http from "http";
-import axios from "axios";
-import dotenv from "dotenv";
-import logger from "../../../shared/utils/logger";
-import { v4 as uuidv4 } from "uuid";
-import { Transaction } from "sequelize";
-import { publicDir } from "../../../shared/utils/paths";
-import * as higgsfieldRepository from "../repository/higgsfieldRepository";
+import fs from 'fs';
+import path from 'path';
+import http from 'http';
+import axios from 'axios';
+import dotenv from 'dotenv';
+import logger from '../../../shared/utils/logger';
+import { v4 as uuidv4 } from 'uuid';
+import { Transaction } from 'sequelize';
+import { publicDir } from '../../../shared/utils/paths';
+import * as higgsfieldRepository from '../repository/higgsfieldRepository';
 
 dotenv.config();
 
-const HIGGSFIELD_API_URL = "https://api.unifically.com/higgsfield";
+const HIGGSFIELD_API_URL = 'https://api.unifically.com/higgsfield';
 const HIGGSFIELD_API_KEY = process.env.HIGGSFIELD_API;
 const httpAgent = new http.Agent({ keepAlive: true });
 
@@ -20,7 +20,7 @@ export const generateVideo = async (payload: {
   start_image_url: string;
   end_image_url?: string;
   motion_id: string;
-  model: "turbo" | "standard" | "lite";
+  model: 'turbo' | 'standard' | 'lite';
   enhance_prompt?: boolean;
   seed?: number;
 }) => {
@@ -31,7 +31,7 @@ export const generateVideo = async (payload: {
       {
         headers: {
           Authorization: `Bearer ${HIGGSFIELD_API_KEY}`,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         httpAgent,
       }
@@ -43,7 +43,7 @@ export const generateVideo = async (payload: {
       JSON.stringify(error.response?.data) ||
       error.message;
     logger.error(`Error generating Higgsfield video: ${message}`);
-    throw new Error("Failed to start Higgsfield video generation.");
+    throw new Error('Failed to start Higgsfield video generation.');
   }
 };
 
@@ -58,13 +58,13 @@ export const getVideoStatus = async (taskId: string) => {
     logger.error(
       `Error fetching Higgsfield task ${taskId} status: ${error.message}`
     );
-    throw new Error("Failed to fetch video generation status.");
+    throw new Error('Failed to fetch video generation status.');
   }
 };
 
 export const getMotions = async (size = 30, cursor?: number) => {
   try {
-    const params: Record<string, any> = { size, preset_family: "higgsfield" };
+    const params: Record<string, any> = { size, preset_family: 'higgsfield' };
     if (cursor) params.cursor = cursor;
 
     const response = await axios.get(`${HIGGSFIELD_API_URL}/motions`, {
@@ -76,12 +76,12 @@ export const getMotions = async (size = 30, cursor?: number) => {
     return response.data;
   } catch (error: any) {
     logger.error(`Error fetching Higgsfield motions: ${error.message}`);
-    throw new Error("Failed to fetch Higgsfield motion presets.");
+    throw new Error('Failed to fetch Higgsfield motion presets.');
   }
 };
 
 const downloadVideo = async (videoUrl: string): Promise<string> => {
-  const videoDir = publicDir("videos", "higgsfield");
+  const videoDir = publicDir('videos', 'higgsfield');
 
   if (!fs.existsSync(videoDir)) {
     fs.mkdirSync(videoDir, { recursive: true });
@@ -92,20 +92,20 @@ const downloadVideo = async (videoUrl: string): Promise<string> => {
 
   try {
     const response = await axios({
-      method: "GET",
+      method: 'GET',
       url: videoUrl,
-      responseType: "stream",
+      responseType: 'stream',
     });
     const writer = fs.createWriteStream(outputPath);
     response.data.pipe(writer);
 
     return new Promise((resolve, reject) => {
-      writer.on("finish", () => resolve(`/videos/higgsfield/${filename}`));
-      writer.on("error", reject);
+      writer.on('finish', () => resolve(`/videos/higgsfield/${filename}`));
+      writer.on('error', reject);
     });
   } catch (error: any) {
     logger.error(`Error downloading video: ${error.message}`);
-    throw new Error("Failed to download video file.");
+    throw new Error('Failed to download video file.');
   }
 };
 
@@ -118,18 +118,24 @@ export const processFinalVideo = async (
 ) => {
   const localPath = await downloadVideo(videoUrl);
   if (publish) {
-    return higgsfieldRepository.createPublication({
-      userId,
-      content: prompt || "Generated Video via Higgsfield",
-      videoUrl: localPath,
-      category: "higgsfield",
-    }, t);
+    return higgsfieldRepository.createPublication(
+      {
+        userId,
+        content: prompt || 'Generated Video via Higgsfield',
+        videoUrl: localPath,
+        category: 'higgsfield',
+      },
+      t
+    );
   } else {
-    return higgsfieldRepository.createGalleryItem({
-      userId,
-      prompt: prompt || "Generated Video via Higgsfield",
-      imageUrl: localPath,
-      generationType: "video-higgsfield",
-    }, t);
+    return higgsfieldRepository.createGalleryItem(
+      {
+        userId,
+        prompt: prompt || 'Generated Video via Higgsfield',
+        imageUrl: localPath,
+        generationType: 'video-higgsfield',
+      },
+      t
+    );
   }
 };
