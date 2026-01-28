@@ -9,6 +9,7 @@ import { Publication } from "../../src/publication/models/Publication";
 import { GenerationJob } from "../../src/publication/models/GenerationJob";
 import { LikedPublication } from "../../src/publication/models/LikedPublication";
 import { FluxModel } from "../../src/flux/models/FluxModel";
+import { Payment } from "../../src/payment/models/Payment";
 
 export const setupAssociations = () => {
   // User -> Publication (One-to-Many)
@@ -139,6 +140,17 @@ export const setupAssociations = () => {
   FluxModel.belongsTo(User, {
     foreignKey: "userId",
     as: "user"
+  });
+
+  // User -> Payment (One-to-Many)
+  User.hasMany(Payment, {
+    foreignKey: "userId",
+    as: "payments",
+    onDelete: "CASCADE",
+  });
+  Payment.belongsTo(User, {
+    foreignKey: "userId",
+    as: "user",
   });
 
   logger.info("Database associations have been set up.");
