@@ -5,6 +5,7 @@ import * as bePaidService from "./bePaidService";
 import { performTransaction } from "../../transaction/service/transactionService";
 import { calculateTokensFromPayment } from "./currencyConversionService";
 import db from "../../../shared/config/database";
+import {findPaymentById} from "../repository/paymentRepository";
 
 // Создает новый платеж
 export const createPayment = async (paymentData: {
@@ -215,24 +216,7 @@ export const handleBePaidWebhook = async (
     );
 
     // Ищем платеж по externalPaymentId (uid транзакции)
-    let payment = await paymentRepository.findPaymentByExternalId(transactionUid);
-
-    // Если не нашли по externalPaymentId, пытаемся найти по токену из order.tracking_id
-    // tracking_id в bePaid может содержать checkout token
-    if (!payment && webhookData.order?.tracking_id) {
-      payment = await paymentRepository.findPaymentByToken(
-        webhookData.order.tracking_id,
-      );
-    }
-
-    // Если все еще не нашли, пытаемся найти по paymentToken из metadata или других полей
-    // В некоторых случаях bePaid может передать checkout token в других полях
-    if (!payment) {
-      // Можно добавить поиск по другим полям, если они есть в webhook
-      logger.warn(
-        `BePaid webhook: trying to find payment by transaction uid ${transactionUid}, but payment not found by externalPaymentId or token`,
-      );
-    }
+    let payment = await paymentRepository.findPaymentById(transactionUid);
 
     if (!payment) {
       logger.warn(
