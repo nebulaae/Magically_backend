@@ -1,15 +1,3 @@
-import logger from "../utils/logger";
-import { User } from "../../src/user/models/User";
-import { TtModel } from "../../src/ttapi/models/TtModel";
-import { Gallery } from "../../src/gallery/models/Gallery";
-import { Comment } from "../../src/comment/models/Comment";
-import { Subscription } from "../../src/user/models/Subscription";
-import { LikedComment } from "../../src/comment/models/LikedComment";
-import { Publication } from "../../src/publication/models/Publication";
-import { GenerationJob } from "../../src/publication/models/GenerationJob";
-import { LikedPublication } from "../../src/publication/models/LikedPublication";
-import { FluxModel } from "../../src/flux/models/FluxModel";
-import { Payment } from "../../src/payment/models/Payment";
 import logger from '../utils/logger';
 import { User } from '../../src/user/models/User';
 import { TtModel } from '../../src/ttapi/models/TtModel';
@@ -153,16 +141,5 @@ export const setupAssociations = () => {
     as: 'user',
   });
 
-  // User -> Payment (One-to-Many)
-  User.hasMany(Payment, {
-    foreignKey: "userId",
-    as: "payments",
-    onDelete: "CASCADE",
-  });
-  Payment.belongsTo(User, {
-    foreignKey: "userId",
-    as: "user",
-  });
-
-  logger.info("Database associations have been set up.");
+  logger.info('Database associations have been set up.');
 };
