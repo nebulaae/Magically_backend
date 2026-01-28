@@ -205,7 +205,7 @@ export const handleBePaidWebhook = async (
       return { success: false, message: "Transaction data not found" };
     }
 
-    const transactionUid = transaction.uid;
+    const transactionUid = transaction.tracking_id;
     const status = transaction.status;
     const amount = transaction.amount / 100; // bePaid передает сумму в копейках/центах
     const currency = transaction.currency;
