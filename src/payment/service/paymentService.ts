@@ -238,6 +238,13 @@ export const handleBePaidWebhook = async (
 
     // Обновляем платеж в транзакции базы данных
     const result = await db.transaction(async (t) => {
+      // Сохраняем исходный статус для проверки необходимости начисления токенов
+      const originalStatus = payment!.status;
+      
+      logger.info(
+        `Processing payment ${payment!.id}: original status = ${originalStatus}, new status = ${paymentStatus}`,
+      );
+
       // Обновляем статус платежа
       const updatedPayment = await paymentRepository.updatePayment(
         payment!,
@@ -249,11 +256,16 @@ export const handleBePaidWebhook = async (
       );
 
       // Если платеж успешен и еще не был обработан, начисляем токены
+      // Проверяем исходный статус, чтобы избежать повторного начисления при повторных webhook
       if (
         status === "successful" &&
-        payment.status !== "completed" &&
-        payment.status !== "refunded"
+        originalStatus !== "completed" &&
+        originalStatus !== "refunded"
       ) {
+        logger.info(
+          `Payment ${payment!.id} is eligible for token credit: status changed from ${originalStatus} to ${paymentStatus}`,
+        );
+        
         try {
           // Рассчитываем количество токенов с учетом валюты платежа
           // PAYMENT_TO_TOKENS_RATE определяет курс: 1 токен = PAYMENT_TO_TOKENS_RATE RUB
@@ -266,7 +278,7 @@ export const handleBePaidWebhook = async (
 
           // Начисляем токены через Transaction Module
           await performTransaction(
-            payment.userId,
+            payment!.userId,
             finalTokens,
             "credit",
             `Payment completed: ${amount} ${currency} (Transaction: ${transactionUid})`,
@@ -274,14 +286,20 @@ export const handleBePaidWebhook = async (
           );
 
           logger.info(
-            `Tokens credited: ${finalTokens} tokens for user ${payment.userId} (payment ${payment.id})`,
+            `Tokens credited: ${finalTokens} tokens for user ${payment!.userId} (payment ${payment!.id})`,
           );
         } catch (error: any) {
           logger.error(
-            `Failed to credit tokens for payment ${payment.id}: ${error.message}`,
+            `Failed to credit tokens for payment ${payment!.id}: ${error.message}`
           );
           // Не прерываем транзакцию, но логируем ошибку
+          // Статус платежа будет обновлен, но токены не будут начислены
+          // При следующем webhook попытка начисления повторится, если статус еще не "completed"
         }
+      } else {
+        logger.info(
+          `Payment ${payment!.id} skipped token credit: status=${status}, originalStatus=${originalStatus}`,
+        );
       }
 
       return updatedPayment;
