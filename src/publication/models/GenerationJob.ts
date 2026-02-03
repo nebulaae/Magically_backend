@@ -5,19 +5,20 @@ export interface GenerationJobAttributes {
   id: string;
   userId: string;
   service:
-    | 'kling'
-    | 'higgsfield'
-    | 'gpt'
-    | 'nano'
-    | 'nano-pro'
-    | 'gpt-1.5'
-    | 'ttapi'
-    | 'flux'
-    | 'ai';
+  | 'kling'
+  | 'higgsfield'
+  | 'gpt'
+  | 'nano'
+  | 'nano-pro'
+  | 'gpt-1.5'
+  | 'ttapi'
+  | 'flux'
+  | 'ai';
   serviceTaskId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   resultUrl?: string;
   errorMessage?: string;
+  isPublished: boolean;
   meta: {
     prompt: string;
     publish: boolean;
@@ -30,8 +31,7 @@ export interface GenerationJobAttributes {
 
 export class GenerationJob
   extends Model<GenerationJobAttributes>
-  implements GenerationJobAttributes
-{
+  implements GenerationJobAttributes {
   public id!: string;
   public userId!: string;
   public service!:
@@ -48,6 +48,7 @@ export class GenerationJob
   public status!: 'pending' | 'processing' | 'completed' | 'failed';
   public resultUrl?: string;
   public errorMessage?: string;
+  public isPublished!: boolean;
   public meta!: any;
 }
 
@@ -85,6 +86,11 @@ GenerationJob.init(
     },
     resultUrl: { type: DataTypes.STRING, allowNull: true },
     errorMessage: { type: DataTypes.TEXT, allowNull: true },
+    isPublished: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+    },
     meta: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
   },
   { sequelize: db, modelName: 'GenerationJob', tableName: 'generation_jobs' }

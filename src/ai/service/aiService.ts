@@ -5,6 +5,7 @@ import logger from '../../../shared/utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from 'sequelize';
 import { fromPublic, publicDir } from '../../../shared/utils/paths';
+import { GenerationJob } from '../../publication/models/GenerationJob';
 import * as aiRepository from '../repository/aiRepository';
 
 const UNIFICALLY_API_KEY = process.env.FLUX_API_KEY;
@@ -12,13 +13,13 @@ const UNIFICALLY_URL = 'https://api.unifically.com/flux.2-max';
 const TTAPI_KEY = process.env.TTAPI_KEY;
 const TTAPI_URL = 'https://api.ttapi.io';
 const BACKEND_URL = process.env.BACKEND_URL;
-const SYSTEM_INSTRUCTIONS =
-  'Photorealistic, studio lighting, non-destructive retouching; flawless, smooth skin without pores and other face defects; no blemishes, freckles, acne, dark spots, wrinkles, shine; subtle makeup-like finish; even complexion; preserved facial features; crisp eyes/lips; natural hair texture; cinematic color grading. Learn from the uploaded photos and create an image.';
+const SYSTEM_INSTRUCTIONS = process.env.SYSTEM_PROMPT;
 
 export interface GenerateOptions {
   width?: number;
   height?: number;
   seed?: number;
+  quality: "1K" | "2K";
   aspect_ratio?: string;
   safety_tolerance?: number;
 }
@@ -135,7 +136,7 @@ const callUnifically = async (
       prompt: SYSTEM_INSTRUCTIONS + prompt,
       image_urls: selectedImages,
       aspect_ratio: options.aspect_ratio || '1:1',
-      quality: '1K',
+      quality: options.quality,
     };
 
     logger.info(
@@ -185,7 +186,7 @@ const callTTAPI = async (
       width: options.width || 1024,
       height: options.height || 1024,
       seed: options.seed,
-      safety_tolerance: options.safety_tolerance || 2,
+      safety_tolerance: options.safety_tolerance || 5,
       output_format: 'png',
     };
 
@@ -347,36 +348,34 @@ export const processFinalImage = async (
   userId: string,
   imageUrl: string,
   prompt: string,
-  t: Transaction
+  t: Transaction,
+  jobId?: string
 ) => {
   const localImagePath = await downloadImage(imageUrl, 'ai');
 
-  const galleryItem = await aiRepository.createGalleryItem(
-    {
-      userId,
-      prompt: prompt || 'AI Generated',
-      imageUrl: localImagePath,
-      generationType: 'ai-image',
-    },
-    t
-  );
-
-  if (publish) {
-    await aiRepository.createPublication(
-      {
-        userId,
-        content: prompt || 'AI Generated',
-        imageUrl: localImagePath,
-        category: 'ai',
-      },
-      t
-    );
+  if (jobId) {
+    const job = await GenerationJob.findByPk(jobId, { transaction: t });
+    if (job) {
+      job.resultUrl = localImagePath;
+      job.status = 'completed';
+      // Если пользователь выбрал publish при генерации
+      if (publish) {
+        await aiRepository.createPublication({
+          userId,
+          content: prompt,
+          imageUrl: localImagePath,
+          category: 'ai'
+        }, t);
+        job.isPublished = true;
+      }
+      await job.save({ transaction: t });
+    }
   }
 
-  return galleryItem;
+  return { imageUrl: localImagePath };
 };
 
-function parseAspectRatio(ar: string): [number, number] {
+const parseAspectRatio = (ar: string): [number, number] => {
   const map: Record<string, [number, number]> = {
     '1:1': [1024, 1024],
     '16:9': [1024, 576],
@@ -385,4 +384,4 @@ function parseAspectRatio(ar: string): [number, number] {
     '3:4': [768, 1024],
   };
   return map[ar] || [1024, 1024];
-}
+};

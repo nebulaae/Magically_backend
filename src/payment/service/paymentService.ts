@@ -216,7 +216,7 @@ export const handleBePaidWebhook = async (
     );
 
     // Ищем платеж по externalPaymentId (uid транзакции)
-    let payment = await paymentRepository.findPaymentById(transactionUid);
+    const payment = await paymentRepository.findPaymentById(transactionUid);
 
     if (!payment) {
       logger.warn(
