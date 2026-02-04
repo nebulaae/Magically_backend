@@ -12,4 +12,6 @@ router.get('/history', auth, asyncHandler(jobController.getGenerationHistory));
 
 router.get('/jobs/:id', auth, asyncHandler(jobController.getGenerationById));
 
+router.post('/:jobId/publish', auth, asyncHandler(jobController.publishJob));
+
 export default router;

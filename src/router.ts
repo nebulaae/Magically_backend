@@ -5,11 +5,9 @@ import aiRoutes from './ai/ai';
 import gptRoutes from './gpt/gpt';
 import nanoRoutes from './nano/nano';
 import authRoutes from './auth/auth';
-import fluxRoutes from './flux/flux';
 import userRoutes from './user/user';
 import adminRoutes from './admin/admin';
 import klingRoutes from './kling/kling';
-import ttapiRoutes from './ttapi/ttapi';
 import jobRoutes from './publication/job';
 import searchRoutes from './search/search';
 import galleryRoutes from './gallery/gallery';
@@ -17,6 +15,7 @@ import commentRoutes from './comment/comment';
 import higgsfieldRoutes from './higgsfield/higgsfield';
 import publicationRoutes from './publication/publication';
 import transactionRoutes from './transaction/transaction';
+import paymentRoutes from "./payment/payment";
 
 import { swaggerDefinition } from './swagger';
 
@@ -36,16 +35,15 @@ router.use('/job', jobRoutes);
 router.use('/gpt', gptRoutes);
 router.use('/nano', nanoRoutes);
 router.use('/auth', authRoutes);
-router.use('/flux', fluxRoutes);
 router.use('/users', userRoutes);
 router.use('/admin', adminRoutes);
 router.use('/kling', klingRoutes);
-router.use('/ttapi', ttapiRoutes);
 router.use('/search', searchRoutes);
 router.use('/gallery', galleryRoutes);
 router.use('/comments', commentRoutes);
 router.use('/higgsfield', higgsfieldRoutes);
 router.use('/transaction', transactionRoutes);
+router.use("/payment", paymentRoutes);
 router.use('/publications', publicationRoutes);
 
 export default router;

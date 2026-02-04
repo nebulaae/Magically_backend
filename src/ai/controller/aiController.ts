@@ -67,6 +67,7 @@ export const generateImage = async (req: Request, res: Response) => {
     width,
     height,
     seed,
+    quality,
     safety_tolerance,
   } = req.body;
   const userId = req.user.id;
@@ -82,6 +83,7 @@ export const generateImage = async (req: Request, res: Response) => {
       width,
       height,
       seed,
+      quality,
       safety_tolerance,
     });
 

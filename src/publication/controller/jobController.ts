@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { GenerationJob } from '../models/GenerationJob';
+import { publishJobToReel } from '../service/jobService';
 import * as apiResponse from '../../../shared/utils/apiResponse';
 
 export const getActiveGeneration = async (req: Request, res: Response) => {
@@ -33,4 +34,16 @@ export const getGenerationById = async (req: Request, res: Response) => {
   });
   if (!job) return apiResponse.notFound(res, 'Job not found');
   apiResponse.success(res, job);
+};
+
+export const publishJob = async (req: Request, res: Response) => {
+  try {
+    const jobId = Array.isArray(req.params.jobId) ? req.params.jobId[0] : req.params.jobId;
+    const userId = req.user.id;
+    const result = await publishJobToReel(jobId, userId);
+    return apiResponse.success(res, result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Publication failed';
+    return apiResponse.error(res, message, 400);
+  }
 };
