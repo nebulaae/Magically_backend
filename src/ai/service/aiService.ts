@@ -9,7 +9,7 @@ import { GenerationJob } from '../../publication/models/GenerationJob';
 import * as aiRepository from '../repository/aiRepository';
 
 const UNIFICALLY_API_KEY = process.env.FLUX_API_KEY;
-const UNIFICALLY_URL = 'https://api.unifically.com/flux.2-max';
+const UNIFICALLY_URL = 'https://api.unifically.com/v1/tasks';
 const TTAPI_KEY = process.env.TTAPI_KEY;
 const TTAPI_URL = 'https://api.ttapi.io';
 const BACKEND_URL = process.env.BACKEND_URL;
@@ -50,7 +50,12 @@ export const createModel = async (
 export const updateModel = async (
   userId: string,
   modelId: string,
-  data: { name?: string; description?: string; instruction?: string },
+  data: {
+    name?: string;
+    description?: string;
+    instruction?: string;
+    imagesToDelete?: string[] | string;
+  },
   files?: Express.Multer.File[]
 ) => {
   const model = await aiRepository.findModelById(modelId);
@@ -58,13 +63,36 @@ export const updateModel = async (
     throw new Error('Access denied or model not found');
   }
 
-  if (files && files.length > 0) {
-    model.imagePaths.forEach((p) => {
-      const fullPath = fromPublic(p);
-      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+  let currentImages = [...model.imagePaths];
+
+  if (data.imagesToDelete) {
+    let toDelete: string[] = [];
+
+    if (typeof data.imagesToDelete === 'string') {
+      try {
+        toDelete = JSON.parse(data.imagesToDelete);
+      } catch (e) {
+        toDelete = [data.imagesToDelete];
+      }
+    } else if (Array.isArray(data.imagesToDelete)) {
+      toDelete = data.imagesToDelete;
+    }
+
+    toDelete.forEach((pathToDelete) => {
+      currentImages = currentImages.filter(p => p !== pathToDelete);
+      const fullPath = fromPublic(pathToDelete);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
     });
-    model.imagePaths = files.map((f) => `/ai/models/${f.filename}`);
   }
+
+  if (files && files.length > 0) {
+    const newImagePaths = files.map((f) => `/ai/models/${f.filename}`);
+    currentImages = [...currentImages, ...newImagePaths];
+  }
+
+  model.imagePaths = currentImages;
 
   if (data.name) model.name = data.name;
   if (data.description !== undefined) model.description = data.description;
@@ -113,14 +141,11 @@ const selectRandomImages = (
   if (imageUrls.length <= maxCount) {
     return imageUrls;
   }
-
   const shuffled = [...imageUrls];
-
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-
   return shuffled.slice(0, maxCount);
 };
 
@@ -128,22 +153,25 @@ const callUnifically = async (
   prompt: string,
   imageUrls: string[],
   options: GenerateOptions
-): Promise<GenerationResult> => {
+): Promise<{ provider: 'unifically', taskId: string }> => {
   try {
     const selectedImages = selectRandomImages(imageUrls, 4);
 
     const payload = {
-      prompt: SYSTEM_INSTRUCTIONS + prompt,
-      image_urls: selectedImages,
-      aspect_ratio: options.aspect_ratio || '1:1',
-      quality: options.quality,
+      model: "black-forest-labs/flux.2-max",
+      input: {
+        prompt: SYSTEM_INSTRUCTIONS + prompt,
+        image_urls: selectedImages,
+        aspect_ratio: options.aspect_ratio || '1:1',
+        resolution: options.quality === '2K' ? '2k' : '1k'
+      }
     };
 
     logger.info(
       `[Unifically] Request (${selectedImages.length}/${imageUrls.length} images): ${JSON.stringify(payload)}`
     );
 
-    const response = await axios.post(`${UNIFICALLY_URL}/generate`, payload, {
+    const response = await axios.post(UNIFICALLY_URL, payload, {
       headers: {
         Authorization: `Bearer ${UNIFICALLY_API_KEY}`,
         'Content-Type': 'application/json',
@@ -153,7 +181,7 @@ const callUnifically = async (
 
     logger.info(`[Unifically] Response: ${JSON.stringify(response.data)}`);
 
-    const taskId = response.data?.data?.task_id || response.data?.task_id;
+    const taskId = response.data?.data?.task_id;
 
     if (!taskId) {
       logger.error(
@@ -165,26 +193,26 @@ const callUnifically = async (
     logger.info(`[Unifically] Success with task_id: ${taskId}`);
     return { provider: 'unifically', taskId };
   } catch (error: any) {
-    const errorMsg =
-      error.response?.data?.message || error.response?.data || error.message;
+    const errorMsg = error.response?.data?.message || error.response?.data || error.message;
     logger.error(`[Unifically] Failed: ${JSON.stringify(errorMsg)}`);
     throw error;
   }
 };
 
-// TTAPI Fallback
 const callTTAPI = async (
   prompt: string,
   imageUrls: string[],
   options: GenerateOptions
-): Promise<GenerationResult> => {
+): Promise<{ provider: 'ttapi', taskId: string }> => {
   try {
     const selectedImages = selectRandomImages(imageUrls, 4);
 
+    const { width, height } = getSizeByQuality(options.quality, options.aspect_ratio);
+
     const requestBody: any = {
       prompt: SYSTEM_INSTRUCTIONS + prompt,
-      width: options.width || 1024,
-      height: options.height || 1024,
+      width: options.width || width,
+      height: options.height || height,
       seed: options.seed,
       safety_tolerance: options.safety_tolerance || 5,
       output_format: 'png',
@@ -229,8 +257,7 @@ const callTTAPI = async (
     logger.info(`[TTAPI] Success with jobId: ${taskId}`);
     return { provider: 'ttapi', taskId };
   } catch (error: any) {
-    const errorMsg =
-      error.response?.data?.message || error.response?.data || error.message;
+    const errorMsg = error.response?.data?.message || error.response?.data || error.message;
     logger.error(`[TTAPI] Failed: ${JSON.stringify(errorMsg)}`);
     throw error;
   }
@@ -281,10 +308,9 @@ export const checkStatus = async (
 ) => {
   if (provider === 'unifically') {
     try {
-      const response = await axios.get(`${UNIFICALLY_URL}/status/${taskId}`, {
+      const response = await axios.get(`${UNIFICALLY_URL}/${taskId}`, {
         headers: { Authorization: `Bearer ${UNIFICALLY_API_KEY}` },
       });
-
       return response.data?.data || response.data;
     } catch (error: any) {
       logger.error(`[Unifically] Status check failed: ${error.message}`);
@@ -302,7 +328,6 @@ export const checkStatus = async (
           },
         }
       );
-
       return response.data;
     } catch (error: any) {
       logger.error(`[TTAPI] Status check failed: ${error.message}`);
@@ -384,4 +409,20 @@ const parseAspectRatio = (ar: string): [number, number] => {
     '3:4': [768, 1024],
   };
   return map[ar] || [1024, 1024];
+};
+
+const getSizeByQuality = (quality: "1K" | "2K" = "1K", aspectRatio: string = "1:1"): { width: number, height: number } => {
+  const baseSize = quality === "2K" ? 2048 : 1024;
+
+  const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
+
+  if (!wRatio || !hRatio) return { width: baseSize, height: baseSize };
+
+  if (wRatio === hRatio) return { width: baseSize, height: baseSize };
+
+  if (wRatio > hRatio) {
+    return { width: baseSize, height: Math.round(baseSize * (hRatio / wRatio)) };
+  } else {
+    return { width: Math.round(baseSize * (wRatio / hRatio)), height: baseSize };
+  }
 };

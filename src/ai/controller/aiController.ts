@@ -28,13 +28,13 @@ export const createModel = async (req: Request, res: Response) => {
 
 export const updateModel = async (req: Request, res: Response) => {
   const { modelId } = req.params;
-  const { name, description, instruction } = req.body;
+  const { name, description, instruction, imagesToDelete } = req.body;
   const files = req.files as Express.Multer.File[];
 
   const model = await aiService.updateModel(
     req.user.id,
     modelId as string,
-    { name, description, instruction },
+    { name, description, instruction, imagesToDelete },
     files
   );
   apiResponse.success(res, model, 'Model updated successfully.');
@@ -99,7 +99,7 @@ export const generateImage = async (req: Request, res: Response) => {
         provider: result.provider,
         aspect_ratio,
         seed,
-        
+
       },
     });
 
