@@ -88,7 +88,7 @@ export const deductTokensForGeneration = async (
 // Helper function to recursively fetch replies
 export const fetchReplies = async (
   comment: Comment,
-  userId: string // [FIX] Pass userId to check likes on replies
+  userId: string
 ) => {
   const replies = await Comment.findAll({
     where: { parentId: comment.id },
@@ -102,7 +102,6 @@ export const fetchReplies = async (
     order: [['createdAt', 'ASC']],
   });
 
-  // [FIX] Check likes for replies
   const replyIds = replies.map((r) => r.id);
   const likedReplies = await LikedComment.findAll({
     where: { userId, commentId: replyIds },

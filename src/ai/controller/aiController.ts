@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import * as aiService from '../service/aiService';
 import * as apiResponse from '../../../shared/utils/apiResponse';
 import { GenerationJob } from '../../publication/models/GenerationJob';
+import db from '../../../shared/config/database';
+import { performTransaction } from '../../transaction/service/transactionService';
 
 export const createModel = async (req: Request, res: Response) => {
   const { name, description, instruction, provider = 'unifically' } = req.body;
@@ -77,7 +79,19 @@ export const generateImage = async (req: Request, res: Response) => {
     return apiResponse.badRequest(res, 'Prompt and Model ID are required.');
   }
 
+  const t = await db.transaction();
   try {
+    // СПИСЫВАЕМ ТОКЕНЫ СРАЗУ (ПРЕДОПЛАТА)
+    const AI_COST = 15;
+    await performTransaction(
+      userId,
+      AI_COST,
+      'debit',
+      'Generation: AI (Flux)',
+      t
+    );
+
+    // Теперь запускаем генерацию
     const result = await aiService.generateImage(userId, modelId, prompt, {
       aspect_ratio,
       width,
@@ -99,9 +113,10 @@ export const generateImage = async (req: Request, res: Response) => {
         provider: result.provider,
         aspect_ratio,
         seed,
-
       },
-    });
+    }, { transaction: t });
+
+    await t.commit();
 
     apiResponse.success(
       res,
@@ -109,6 +124,11 @@ export const generateImage = async (req: Request, res: Response) => {
       'Generation started.'
     );
   } catch (error: any) {
+    await t.rollback();
+    // Понятная ошибка для пользователя
+    if (error.message === 'Insufficient tokens') {
+      return apiResponse.badRequest(res, 'Insufficient tokens for AI generation (15 tokens required)');
+    }
     apiResponse.internalError(res, error.message);
   }
 };

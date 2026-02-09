@@ -45,6 +45,15 @@ export const performTransaction = async (
   }
 };
 
+export const checkUserBalance = async (
+  userId: string,
+  requiredAmount: number
+): Promise<boolean> => {
+  const user = await User.findByPk(userId);
+  if (!user) throw new Error('User not found');
+  return user.tokens >= requiredAmount;
+};
+
 export const getUserHistory = async (
   userId: string,
   page: number,

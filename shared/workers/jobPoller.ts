@@ -4,7 +4,7 @@ import logger from '../utils/logger';
 import { Server as SocketIOServer } from 'socket.io';
 import { getUserSocketId } from '../utils/socketManager';
 import { GenerationJob } from '../../src/publication/models/GenerationJob';
-import { performTransaction } from '../../src/transaction/service/transactionService';
+import { performTransaction, checkUserBalance } from '../../src/transaction/service/transactionService';
 
 import * as aiService from '../../src/ai/service/aiService';
 
@@ -148,16 +148,80 @@ const pollJobs = async (io: SocketIOServer) => {
 
           const { publish, prompt } = job.meta;
 
-          const cost =
-            job.service === 'kling' || job.service === 'higgsfield' ? 40 : 15;
-          await performTransaction(
-            job.userId,
-            cost,
-            'debit',
-            `Generation: ${job.service.toUpperCase()}`,
-            t
-          );
+          // СПИСАНИЕ ТОКЕНОВ:
+          // - AI (flux): предоплата в контроллере, здесь НЕ списываем
+          // - GPT/Nano: предоплата в контроллере (если есть), иначе постоплата здесь
+          // - Kling/Higgsfield: постоплата здесь
 
+          const isVideoService = job.service === 'kling' || job.service === 'higgsfield';
+          const isImageService = job.service.startsWith('gpt') || job.service.startsWith('nano');
+
+          if (isVideoService) {
+            const cost = 40;
+
+            const hasBalance = await checkUserBalance(job.userId, cost);
+            if (!hasBalance) {
+              await t.rollback();
+
+              job.status = 'failed';
+              job.errorMessage = 'Insufficient tokens to complete video generation';
+              await job.save();
+
+              if (userSocketId) {
+                io.to(userSocketId).emit('jobUpdate', {
+                  type: 'failed',
+                  jobId: job.id,
+                  error: 'Insufficient tokens to complete video generation',
+                });
+              }
+
+              logger.error(`Job ${job.id} failed: Insufficient tokens for user ${job.userId}`);
+              continue;
+            }
+
+            await performTransaction(
+              job.userId,
+              cost,
+              'debit',
+              `Generation: ${job.service.toUpperCase()}`,
+              t
+            );
+          } else if (isImageService) {
+            // Для GPT/Nano проверяем, были ли токены уже списаны
+            // Если в meta есть флаг prepaid, значит списали в контроллере
+            if (!job.meta.prepaid) {
+              const cost = 15;
+
+              const hasBalance = await checkUserBalance(job.userId, cost);
+              if (!hasBalance) {
+                await t.rollback();
+
+                job.status = 'failed';
+                job.errorMessage = 'Insufficient tokens to complete image generation';
+                await job.save();
+
+                if (userSocketId) {
+                  io.to(userSocketId).emit('jobUpdate', {
+                    type: 'failed',
+                    jobId: job.id,
+                    error: 'Insufficient tokens to complete image generation',
+                  });
+                }
+
+                logger.error(`Job ${job.id} failed: Insufficient tokens for user ${job.userId}`);
+                continue;
+              }
+
+              await performTransaction(
+                job.userId,
+                cost,
+                'debit',
+                `Generation: ${job.service.toUpperCase()}`,
+                t
+              );
+            }
+          }
+          // Для AI (flux) токены уже списаны в контроллере, ничего не делаем
           let resultItem;
 
           if (job.service === 'ai') {
