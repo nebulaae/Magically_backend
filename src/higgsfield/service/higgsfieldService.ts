@@ -1,12 +1,11 @@
-import fs from 'fs';
-import path from 'path';
 import http from 'http';
 import axios from 'axios';
 import dotenv from 'dotenv';
 import logger from '../../../shared/utils/logger';
+
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from 'sequelize';
-import { publicDir } from '../../../shared/utils/paths';
+import { s3Storage } from '../../../shared/config/s3Storage';
 import * as higgsfieldRepository from '../repository/higgsfieldRepository';
 
 dotenv.config();
@@ -80,35 +79,6 @@ export const getMotions = async (size = 30, cursor?: number) => {
   }
 };
 
-const downloadVideo = async (videoUrl: string): Promise<string> => {
-  const videoDir = publicDir('videos', 'higgsfield');
-
-  if (!fs.existsSync(videoDir)) {
-    fs.mkdirSync(videoDir, { recursive: true });
-  }
-
-  const filename = `${uuidv4()}.mp4`;
-  const outputPath = path.join(videoDir, filename);
-
-  try {
-    const response = await axios({
-      method: 'GET',
-      url: videoUrl,
-      responseType: 'stream',
-    });
-    const writer = fs.createWriteStream(outputPath);
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on('finish', () => resolve(`/videos/higgsfield/${filename}`));
-      writer.on('error', reject);
-    });
-  } catch (error: any) {
-    logger.error(`Error downloading video: ${error.message}`);
-    throw new Error('Failed to download video file.');
-  }
-};
-
 export const processFinalVideo = async (
   publish: boolean,
   userId: string,
@@ -116,7 +86,10 @@ export const processFinalVideo = async (
   prompt: string,
   t: Transaction
 ) => {
-  const localPath = await downloadVideo(videoUrl);
+  const filename = `${uuidv4()}.mp4`;
+
+  const localPath = await s3Storage.downloadAndUpload(videoUrl, 'videos/kling', filename);
+
   if (publish) {
     return higgsfieldRepository.createPublication(
       {

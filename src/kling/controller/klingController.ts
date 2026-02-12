@@ -5,6 +5,7 @@ import { GenerationJob } from '../../publication/models/GenerationJob';
 import { deductTokensForGeneration } from '../../../shared/utils/userActions';
 import * as klingService from '../service/klingService';
 import * as apiResponse from '../../../shared/utils/apiResponse';
+import { s3Storage } from '../../../shared/config/s3Storage';
 
 export const generateVideo = async (req: Request, res: Response) => {
   const {
@@ -27,11 +28,22 @@ export const generateVideo = async (req: Request, res: Response) => {
   try {
     await deductTokensForGeneration(userId, 'video', t);
 
-    const imageUrl = `${process.env.BACKEND_URL}/ai/kling/${file.filename}`;
+    // ИСПРАВЛЕНИЕ: Загружаем и получаем ключ
+    const { key } = await s3Storage.uploadFile(file, 'ai/kling');
+
+    // Формируем URL для внешнего API
+    let imageUrlForApi;
+    if (process.env.USE_S3 === 'true') {
+      imageUrlForApi = s3Storage.getPublicUrl(key);
+    } else {
+      // Убираем начальный слеш, если он есть, чтобы не было //
+      const cleanKey = key.startsWith('/') ? key.slice(1) : key;
+      imageUrlForApi = `${process.env.BACKEND_URL}/${cleanKey}`;
+    };
 
     const payload = {
       model: model || 'kling-v1',
-      image_url: imageUrl,
+      image_url: imageUrlForApi,
       prompt,
       duration: parseInt(duration, 10) || 5,
       aspect_ratio: aspect_ratio || '16:9',

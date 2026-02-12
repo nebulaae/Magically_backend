@@ -1,11 +1,10 @@
-import fs from 'fs';
-import path from 'path';
 import axios from 'axios';
 import logger from '../../../shared/utils/logger';
+
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from 'sequelize';
-import { fromPublic, publicDir } from '../../../shared/utils/paths';
 import { GenerationJob } from '../../publication/models/GenerationJob';
+import { s3Storage } from '../../../shared/config/s3Storage';
 import * as aiRepository from '../repository/aiRepository';
 
 const UNIFICALLY_API_KEY = process.env.FLUX_API_KEY;
@@ -32,11 +31,13 @@ export const createModel = async (
   files: Express.Multer.File[],
   provider: 'unifically' | 'ttapi' = 'unifically'
 ) => {
-  if (files.length === 0) {
+  if (!files || files.length === 0) {
     throw new Error('At least one image is required.');
   }
 
-  const imagePaths = files.map((f) => `/ai/models/${f.filename}`);
+  const uploadResults = await s3Storage.uploadFiles(files, 'ai/models');
+  const imagePaths = uploadResults.map((res) => res.key);
+
   return await aiRepository.createModel({
     userId,
     name,
@@ -67,7 +68,6 @@ export const updateModel = async (
 
   if (data.imagesToDelete) {
     let toDelete: string[] = [];
-
     if (typeof data.imagesToDelete === 'string') {
       try {
         toDelete = JSON.parse(data.imagesToDelete);
@@ -78,17 +78,15 @@ export const updateModel = async (
       toDelete = data.imagesToDelete;
     }
 
-    toDelete.forEach((pathToDelete) => {
+    await Promise.all(toDelete.map(async (pathToDelete) => {
       currentImages = currentImages.filter(p => p !== pathToDelete);
-      const fullPath = fromPublic(pathToDelete);
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-      }
-    });
+      await s3Storage.deleteFile(pathToDelete);
+    }));
   }
 
   if (files && files.length > 0) {
-    const newImagePaths = files.map((f) => `/ai/models/${f.filename}`);
+    const uploadResults = await s3Storage.uploadFiles(files, 'ai/models');
+    const newImagePaths = uploadResults.map(res => res.url);
     currentImages = [...currentImages, ...newImagePaths];
   }
 
@@ -110,12 +108,9 @@ export const deleteModel = async (userId: string, modelId: string) => {
   if (!model) throw new Error('Model not found');
   if (model.userId !== userId) throw new Error('Access denied');
 
-  model.imagePaths.forEach((relativePath) => {
-    const fullPath = fromPublic(relativePath);
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
-    }
-  });
+  if (model.imagePaths && model.imagePaths.length > 0) {
+    await s3Storage.deleteFiles(model.imagePaths);
+  }
 
   await aiRepository.deleteModel(model);
   return { message: 'Model deleted successfully' };
@@ -336,38 +331,6 @@ export const checkStatus = async (
   }
 };
 
-export const downloadImage = async (
-  imageUrl: string,
-  pathname: string
-): Promise<string> => {
-  const imageDir = publicDir('images', pathname);
-  if (!fs.existsSync(imageDir)) {
-    fs.mkdirSync(imageDir, { recursive: true });
-  }
-
-  const filename = `${uuidv4()}.png`;
-  const outputPath = path.join(imageDir, filename);
-
-  try {
-    const response = await axios({
-      method: 'GET',
-      url: imageUrl,
-      responseType: 'stream',
-    });
-
-    const writer = fs.createWriteStream(outputPath);
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on('finish', () => resolve(`/images/ai/${filename}`));
-      writer.on('error', reject);
-    });
-  } catch (error: any) {
-    logger.error(`Error downloading image: ${error.message}`);
-    throw new Error('Failed to download generated image.');
-  }
-};
-
 export const processFinalImage = async (
   publish: boolean,
   userId: string,
@@ -376,19 +339,21 @@ export const processFinalImage = async (
   t: Transaction,
   jobId?: string
 ) => {
-  const localImagePath = await downloadImage(imageUrl, 'ai');
+  // Скачиваем из URL провайдера и заливаем в наш S3 (или локально)
+  // s3Storage сам сгенерирует имя файла
+  const filename = `${uuidv4()}.png`;
+  const savedUrl = await s3Storage.downloadAndUpload(imageUrl, 'images/ai', filename);
 
   if (jobId) {
     const job = await GenerationJob.findByPk(jobId, { transaction: t });
     if (job) {
-      job.resultUrl = localImagePath;
+      job.resultUrl = savedUrl;
       job.status = 'completed';
-      // Если пользователь выбрал publish при генерации
       if (publish) {
         await aiRepository.createPublication({
           userId,
           content: prompt,
-          imageUrl: localImagePath,
+          imageUrl: savedUrl,
           category: 'ai'
         }, t);
         job.isPublished = true;
@@ -397,7 +362,7 @@ export const processFinalImage = async (
     }
   }
 
-  return { imageUrl: localImagePath };
+  return { imageUrl: savedUrl };
 };
 
 const parseAspectRatio = (ar: string): [number, number] => {

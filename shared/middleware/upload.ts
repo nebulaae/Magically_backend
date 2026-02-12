@@ -1,8 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
+
 import { Request } from 'express';
 import { publicDir } from '../utils/paths';
+import { s3Storage } from '../config/s3Storage';
 
 // Define the destinations for directories
 export const gptDir = publicDir('ai', 'gpt');
@@ -15,22 +17,26 @@ export const avatarDir = publicDir('users', 'avatars');
 export const higgsfieldDir = publicDir('ai', 'higgsfield');
 export const publicationDir = publicDir('publications');
 
-// Ensure directories exist
-[
-  gptDir,
-  nanoDir,
-  fluxDir,
-  klingDir,
-  ttapiDir,
-  avatarDir,
-  aiModelsDir,
-  higgsfieldDir,
-  publicationDir,
-].forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
+const useS3 = process.env.USE_S3 === 'true';
+
+// Ensure directories exist (only if not using S3)
+if (!useS3) {
+  [
+    gptDir,
+    nanoDir,
+    fluxDir,
+    klingDir,
+    ttapiDir,
+    avatarDir,
+    aiModelsDir,
+    higgsfieldDir,
+    publicationDir,
+  ].forEach((dir) => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+}
 
 // File filter to only accept image files
 const fileFilter = (
@@ -88,7 +94,7 @@ export const uploadAvatar = multer({
       cb(null, avatarDir);
     },
     filename: (req: Request, file, cb) => {
-      const userId = req.user.id;
+      const userId = req.user?.id || 'anonymous';
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `${userId}-${uniqueSuffix}${extension}`);
@@ -105,7 +111,7 @@ export const uploadPublicationImage = multer({
       cb(null, publicationDir);
     },
     filename: (req: Request, file, cb) => {
-      const userId = req.user.id;
+      const userId = req.user?.id || 'anonymous';
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `${userId}-${uniqueSuffix}${extension}`);
@@ -122,7 +128,7 @@ export const uploadKlingImage = multer({
       cb(null, klingDir);
     },
     filename: (req, file, cb) => {
-      const userId = req.user.id;
+      const userId = req.user?.id || 'anonymous';
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `kling-${userId}-${uniqueSuffix}${extension}`);
@@ -139,7 +145,7 @@ export const uploadHiggsfieldImage = multer({
       cb(null, higgsfieldDir);
     },
     filename: (req, file, cb) => {
-      const userId = req.user.id;
+      const userId = req.user?.id || 'anonymous';
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `higgsfield-${userId}-${uniqueSuffix}${extension}`);
@@ -155,7 +161,7 @@ export const uploadTtapiModelImages = multer({
       cb(null, ttapiDir);
     },
     filename: (req: Request, file, cb) => {
-      const userId = req.user.id;
+      const userId = req.user?.id || 'anonymous';
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `ttapi-${userId}-${uniqueSuffix}${extension}`);
@@ -171,7 +177,7 @@ export const uploadFluxModelImages = multer({
       cb(null, fluxDir);
     },
     filename: (req, file, cb) => {
-      const userId = req.user.id;
+      const userId = req.user?.id || 'anonymous';
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `flux-${userId}-${uniqueSuffix}${extension}`);
@@ -187,7 +193,7 @@ export const uploadNanoImages = multer({
       cb(null, nanoDir);
     },
     filename: (req: Request, file, cb) => {
-      const userId = req.user.id;
+      const userId = req.user?.id || 'anonymous';
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `nano-${userId}-${uniqueSuffix}${extension}`);
@@ -203,7 +209,7 @@ export const uploadGptImages = multer({
       cb(null, gptDir);
     },
     filename: (req: Request, file, cb) => {
-      const userId = req.user.id;
+      const userId = req.user?.id || 'anonymous';
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `gpt-${userId}-${uniqueSuffix}${extension}`);
@@ -219,7 +225,7 @@ export const uploadAIModelImages = multer({
       cb(null, aiModelsDir);
     },
     filename: (req: Request, file, cb) => {
-      const userId = req.user.id;
+      const userId = req.user?.id || 'anonymous';
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const extension = path.extname(file.originalname);
       cb(null, `ai-model-${userId}-${uniqueSuffix}${extension}`);
@@ -228,3 +234,48 @@ export const uploadAIModelImages = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: fileFilter,
 }).array('modelImages', 8);
+
+/**
+ * Helper function to handle file upload after multer processing
+ * Use this in your controllers/services to upload to S3
+ */
+export const handleFileUpload = async (
+  file: Express.Multer.File,
+  directory: string
+): Promise<string> => {
+  if (useS3) {
+    const result = await s3Storage.uploadFile(file, directory);
+    return result.url;
+  }
+  // Return local path
+  return `/${directory}/${file.filename}`;
+};
+
+/**
+ * Helper function to handle multiple files upload
+ */
+export const handleFilesUpload = async (
+  files: Express.Multer.File[],
+  directory: string
+): Promise<string[]> => {
+  if (useS3) {
+    const results = await s3Storage.uploadFiles(files, directory);
+    return results.map((r) => r.url);
+  }
+  // Return local paths
+  return files.map((f) => `/${directory}/${f.filename}`);
+};
+
+/**
+ * Helper function to delete file
+ */
+export const deleteFile = async (filePath: string): Promise<void> => {
+  await s3Storage.deleteFile(filePath);
+};
+
+/**
+ * Helper function to delete multiple files
+ */
+export const deleteFiles = async (filePaths: string[]): Promise<void> => {
+  await s3Storage.deleteFiles(filePaths);
+};

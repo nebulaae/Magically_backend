@@ -5,6 +5,7 @@ import { GenerationJob } from '../../publication/models/GenerationJob';
 import { deductTokensForGeneration } from '../../../shared/utils/userActions';
 import * as higgsfieldService from '../service/higgsfieldService';
 import * as apiResponse from '../../../shared/utils/apiResponse';
+import { s3Storage } from '../../../shared/config/s3Storage';
 
 export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
   const { prompt, motion_id, model, enhance_prompt, seed, publish } = req.body;
@@ -23,16 +24,33 @@ export const generateHiggsfieldVideo = async (req: Request, res: Response) => {
     return apiResponse.badRequest(res, 'At least one image is required.');
   }
 
-  const startImageUrl = `${process.env.BACKEND_URL}/ai/higgsfield/${files[0].filename}`;
-  const endImageUrl =
-    files.length > 1
-      ? `${process.env.BACKEND_URL}/ai/higgsfield/${files[1].filename}`
-      : undefined;
+  // const startImageUrl = `${process.env.BACKEND_URL}/ai/higgsfield/${files[0].filename}`;
+  // const endImageUrl =
+  //   files.length > 1
+  //     ? `${process.env.BACKEND_URL}/ai/higgsfield/${files[1].filename}`
+  //     : undefined;
 
   const t = await db.transaction();
 
   try {
     await deductTokensForGeneration(userId, 'video', t);
+
+    // ИСПРАВЛЕНИЕ: Загружаем файлы в S3
+    // Higgsfield может принимать 2 картинки (start/end)
+    const uploadResults = await s3Storage.uploadFiles(files, 'ai/higgsfield');
+
+    const getUrl = (index: number) => {
+      if (!uploadResults[index]) return undefined;
+      const key = uploadResults[index].key;
+      if (process.env.USE_S3 === 'true') {
+        return s3Storage.getPublicUrl(key);
+      }
+      const cleanKey = key.startsWith('/') ? key.slice(1) : key;
+      return `${process.env.BACKEND_URL}/${cleanKey}`;
+    };
+
+    const startImageUrl = getUrl(0);
+    const endImageUrl = getUrl(1);
 
     const payload = {
       prompt,

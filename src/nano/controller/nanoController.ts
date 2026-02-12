@@ -1,5 +1,6 @@
 import db from '../../../shared/config/database';
 import { Request, Response } from 'express';
+import { s3Storage } from '../../../shared/config/s3Storage';
 import { GenerationJob } from '../../publication/models/GenerationJob';
 import { deductTokensForGeneration } from '../../../shared/utils/userActions';
 import * as nanoService from '../service/nanoService';
@@ -22,8 +23,26 @@ export const generateImage = async (req: Request, res: Response) => {
     if (isPro) payload.resolution = '2k';
 
     if (file) {
-      const serverImageUrl = `${process.env.BACKEND_URL}/ai/nano/${file.filename}`;
-      payload.image_urls = [serverImageUrl];
+      // ИСПРАВЛЕНИЕ: Загружаем init-image в S3 (или оставляем локально)
+      // uploadFile вернет объект { url, key }. 
+      // Но нам нужен полный URL для API Nano, чтобы он мог скачать картинку.
+      const { key } = await s3Storage.uploadFile(file, 'ai/nano');
+
+      // Генерируем публичный URL, который увидит Nano API
+      // Внимание: Если MinIO локальный, Nano API его не увидит!
+      // Для продакшена (USE_S3=true) ссылка будет вести на внешний S3/MinIO.
+      // Для локальной разработки с ngrok, нужно использовать BACKEND_URL + key (если s3 выключен)
+
+      let imageUrlForApi;
+      if (process.env.USE_S3 === 'true') {
+        // Получаем ссылку от S3
+        imageUrlForApi = s3Storage.getPublicUrl(key);
+      } else {
+        // Локально через ngrok
+        imageUrlForApi = `${process.env.BACKEND_URL}/${key}`;
+      }
+
+      payload.image_urls = [imageUrlForApi];
     }
 
     const nanoResponse = await nanoService.generateNanoImage(payload, isPro);

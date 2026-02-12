@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import * as userService from '../service/userService';
 import * as userRepository from '../repository/userRepository';
 import * as apiResponse from '../../../shared/utils/apiResponse';
+import { handleFileUpload } from '../../../shared/middleware/upload';
 
 const handleErrors = (error: Error, res: Response) => {
   logger.error(error.message);
@@ -79,9 +80,10 @@ export const updateAvatar = async (req: Request, res: Response) => {
     if (!req.file) {
       return apiResponse.badRequest(res, 'No file uploaded.');
     }
-    // Old avatar deletion logic can be triggered from service
-    const avatarUrlPath = `/users/avatars/${req.file.filename}`;
+
+    const avatarUrlPath = await handleFileUpload(req.file, 'users/avatars');
     const user = await userService.updateAvatar(userId, avatarUrlPath);
+    
     apiResponse.success(res, { user }, 'Avatar updated successfully');
   } catch (error) {
     handleErrors(error, res);

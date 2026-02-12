@@ -7,6 +7,7 @@ import {
   invalidateCache,
 } from '../../../shared/config/redis';
 import * as userRepository from '../repository/userRepository';
+import { s3Storage } from '../../../shared/config/s3Storage';
 
 const addIsFollowingInfoToUsers = async (
   users: User[],
@@ -124,10 +125,14 @@ export const updateAvatar = async (userId: string, avatarPath: string) => {
   const user = await userRepository.findUserByPk(userId);
   if (!user) throw new Error('User not found');
 
-  // Logic for deleting old avatar can be here
+  if (user.avatar) {
+      await s3Storage.deleteFile(user.avatar);
+  }
+
   const updatedUser = await userRepository.updateUser(user, {
     avatar: avatarPath,
   });
+  
   await invalidateCache(`user:profile:${user.username}`);
   const { password, ...userResponse } = updatedUser.get({ plain: true });
   return userResponse;

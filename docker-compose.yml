@@ -7,8 +7,9 @@ services:
     depends_on:
       - db
       - redis
+      - minio
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=5000
       - DB_HOST=db
       - DB_PORT=5432
@@ -18,17 +19,31 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - FRONTEND_URL=${FRONTEND_URL}
       - BACKEND_URL=${BACKEND_URL}
+      - ADMIN_URL=${ADMIN_URL}
       - EMAIL_HOST=${EMAIL_HOST}
       - EMAIL_PORT=${EMAIL_PORT}
       - EMAIL_USER=${EMAIL_USER}
       - EMAIL_PASS=${EMAIL_PASS}
-      - FAL_API=${FAL_API}
       - GPT_API=${GPT_API}
       - HIGGSFIELD_API=${HIGGSFIELD_API}
       - KLING_API=${KLING_API}
-      - REPLICATE_API=${REPLICATE_API}
+      - NANO_API_KEY=${NANO_API_KEY}
+      - FLUX_API_KEY=${FLUX_API_KEY}
+      - TTAPI_KEY=${TTAPI_KEY}
+      - USE_S3=${USE_S3}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - SYSTEM_PROMPT=${SYSTEM_PROMPT}
+      - S3_ENDPOINT=minio
+      - S3_PORT=9000
+      - S3_USE_SSL=false
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
     volumes:
       - ./public:/usr/src/app/public
     networks:
@@ -37,6 +52,7 @@ services:
   db:
     image: postgres:14-alpine
     container_name: volshebny_db
+    restart: always
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
@@ -51,70 +67,53 @@ services:
   redis:
     image: redis:6.2-alpine
     container_name: volshebny_redis
+    restart: always
     ports:
       - "6379:6379"
-    command: redis-server /usr/local/etc/redis/redis.conf # Tell Redis to use our config
     volumes:
       - redis_data:/data
-      - ./monitoring/redis/redis.conf:/usr/local/etc/redis/redis.conf # Mount the config file
     networks:
       - volshebny-network
 
-  prometheus:
-    image: prom/prometheus:v2.47.0
-    container_name: prometheus
+  # MinIO (S3 Compatible Storage)
+  minio:
+    image: minio/minio:latest
+    container_name: volshebny_minio
+    restart: always
     ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus:/etc/prometheus
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-    networks:
-      - volshebny-network
-
-  loki:
-    image: grafana/loki:2.9.0
-    container_name: loki
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml
-      - ./monitoring/loki-data:/loki   # 👈 все данные тут
-    command: -config.file=/etc/loki/loki-config.yml
-    networks:
-      - volshebny-network
-
-  promtail:
-    image: grafana/promtail:2.9.0
-    container_name: promtail
-    volumes:
-      - ./monitoring/promtail/promtail.yml:/etc/promtail/config.yml
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: -config.file=/etc/promtail/config.yml
-    networks:
-      - volshebny-network
-
-  grafana:
-    image: grafana/grafana:10.1.1
-    container_name: grafana
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - "9000:9000"
+      - "9001:9001"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=grafana
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - volshebny-network
+
+  # Job to create bucket automatically
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set myminio http://minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY}); do
+        echo '...waiting for minio...';
+        sleep 5;
+      done;
+      /usr/bin/mc mb --ignore-existing myminio/${S3_BUCKET_NAME};
+      /usr/bin/mc policy set download myminio/${S3_BUCKET_NAME};
+      exit 0;
+      "
     networks:
       - volshebny-network
 
 volumes:
   postgres_data:
   redis_data:
-  prometheus_data:
-  grafana_data:
-
+  minio_data:
 
 networks:
   volshebny-network:

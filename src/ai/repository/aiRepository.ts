@@ -37,7 +37,6 @@ export const deleteModel = (
   return model.destroy({ transaction });
 };
 
-// Сохранение результатов генерации
 export const createPublication = (data: any, transaction: Transaction) => {
   return Publication.create(data, { transaction });
 };

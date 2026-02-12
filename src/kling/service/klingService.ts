@@ -1,12 +1,11 @@
-import fs from 'fs';
-import path from 'path';
 import http from 'http';
 import axios from 'axios';
 import dotenv from 'dotenv';
 import logger from '../../../shared/utils/logger';
+
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from 'sequelize';
-import { publicDir } from '../../../shared/utils/paths';
+import { s3Storage } from '../../../shared/config/s3Storage';
 import * as klingRepository from '../repository/klingRepository';
 
 dotenv.config();
@@ -66,31 +65,6 @@ export const getKlingVideoStatus = async (taskId: string) => {
   }
 };
 
-const downloadKlingVideo = async (videoUrl: string): Promise<string> => {
-  const videoDir = publicDir('videos', 'kling');
-  if (!fs.existsSync(videoDir)) fs.mkdirSync(videoDir, { recursive: true });
-
-  const filename = `${uuidv4()}.mp4`;
-  const outputPath = path.join(videoDir, filename);
-
-  try {
-    const response = await axios({
-      method: 'GET',
-      url: videoUrl,
-      responseType: 'stream',
-    });
-    const writer = fs.createWriteStream(outputPath);
-    response.data.pipe(writer);
-    return new Promise((resolve, reject) => {
-      writer.on('finish', () => resolve(`/videos/kling/${filename}`));
-      writer.on('error', reject);
-    });
-  } catch (error) {
-    logger.error(`Error downloading Kling video: ${error.message}`);
-    throw new Error('Failed to download Kling video.');
-  }
-};
-
 export const processFinalVideo = async (
   publish: boolean,
   userId: string,
@@ -98,13 +72,16 @@ export const processFinalVideo = async (
   prompt: string,
   t: Transaction
 ) => {
-  const downloadedVideoPath = await downloadKlingVideo(videoUrl);
+  const filename = `${uuidv4()}.mp4`;
+
+  const localPath = await s3Storage.downloadAndUpload(videoUrl, 'videos/kling', filename);
+
   if (publish) {
     return klingRepository.createPublication(
       {
         userId,
         content: prompt || 'Generated Video',
-        videoUrl: downloadedVideoPath,
+        videoUrl: localPath,
         category: 'kling',
       },
       t
@@ -114,7 +91,7 @@ export const processFinalVideo = async (
       {
         userId,
         prompt: prompt || 'Generated Video',
-        imageUrl: downloadedVideoPath,
+        imageUrl: localPath,
         generationType: 'video-kling',
       },
       t
