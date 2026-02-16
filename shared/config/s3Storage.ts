@@ -22,55 +22,62 @@ class S3Storage {
         this.useS3 = process.env.USE_S3 === 'true';
         this.bucketName = process.env.S3_BUCKET_NAME || 'magically';
 
-        if (!this.useS3) return;
+        if (this.useS3) {
+            const isSSL = process.env.S3_USE_SSL === 'true';
+            const port = this.getS3Port(isSSL);
 
-        const isSSL = process.env.S3_USE_SSL === 'true';
+            this.client = new Minio.Client({
+                endPoint: process.env.S3_ENDPOINT,
+                ...(port && { port }),
+                useSSL: isSSL,
+                accessKey: process.env.S3_ACCESS_KEY,
+                secretKey: process.env.S3_SECRET_KEY,
+            });
 
-        const minioConfig: any = {
-            endPoint: process.env.S3_ENDPOINT,
-            useSSL: isSSL,
-            accessKey: process.env.S3_ACCESS_KEY,
-            secretKey: process.env.S3_SECRET_KEY,
-            pathStyle: true,
-        };
-
-        if (process.env.S3_PORT) {
-            minioConfig.port = parseInt(process.env.S3_PORT);
+            this.initializeBucket().catch(err => logger.error(`S3 Init Error: ${err.message}`));
         }
+    }
 
-        this.client = new Minio.Client(minioConfig);
-
-        this.initializeBucket().catch(err =>
-            logger.error(`S3 Init Error: ${err.message}`)
-        );
+    private getS3Port(isSSL: boolean): number | undefined {
+        const port = process.env.S3_PORT;
+        
+        // На продакшене (SSL) порты стандартные - не указываем
+        if (isSSL) {
+            return undefined;
+        }
+        
+        // На девелопменте используем явно указанный порт
+        return port ? parseInt(port) : undefined;
     }
 
     private async initializeBucket() {
         try {
             const exists = await this.client.bucketExists(this.bucketName);
+
             if (!exists) {
                 await this.client.makeBucket(this.bucketName, 'us-east-1');
-
-                // Политика для публичного чтения
-                const policy = {
-                    Version: '2012-10-17',
-                    Statement: [
-                        {
-                            Effect: 'Allow',
-                            Principal: { AWS: ['*'] },
-                            Action: ['s3:GetObject'],
-                            Resource: [`arn:aws:s3:::${this.bucketName}/*`],
-                        },
-                    ],
-                };
-                await this.client.setBucketPolicy(this.bucketName, JSON.stringify(policy));
-                logger.info(`Bucket ${this.bucketName} created and configured.`);
             }
-        } catch (error: any) {
-            // Игнорируем ошибку, если бакет уже есть или нет прав (создастся через docker-compose)
-            logger.warn(`Bucket init check: ${error.message}`);
+
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: { AWS: ['*'] },
+                        Action: ['s3:GetObject'],
+                        Resource: [`arn:aws:s3:::${this.bucketName}/*`],
+                    },
+                ],
+            };
+
+            await this.client.setBucketPolicy(this.bucketName, JSON.stringify(policy));
+
+            logger.info('S3 bucket ready + public policy ensured');
+        } catch (e: any) {
+            logger.error('S3 init fail: ' + e.message);
         }
     }
+
 
     /**
      * Получение публичной ссылки (Для фронтенда)
