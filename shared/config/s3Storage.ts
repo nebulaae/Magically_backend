@@ -1,14 +1,17 @@
-import * as Minio from 'minio';
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
+import dotenv from 'dotenv';
 import logger from '../utils/logger';
 import { publicDir } from '../utils/paths';
+import * as Minio from 'minio';
+
+dotenv.config();
 
 interface UploadResult {
     url: string;
     key: string;
-}
+};
 
 class S3Storage {
     private client: Minio.Client;
@@ -20,12 +23,14 @@ class S3Storage {
         this.bucketName = process.env.S3_BUCKET_NAME || 'volshebny-bucket';
 
         if (this.useS3) {
+            const isSSL = process.env.S3_USE_SSL === 'true';
+
             this.client = new Minio.Client({
-                endPoint: process.env.S3_ENDPOINT || 'localhost',
-                port: parseInt(process.env.S3_PORT || '9000'),
-                useSSL: process.env.S3_USE_SSL === 'true',
-                accessKey: process.env.S3_ACCESS_KEY || '',
-                secretKey: process.env.S3_SECRET_KEY || '',
+                endPoint: process.env.S3_ENDPOINT,
+                port: process.env.S3_PORT ? parseInt(process.env.S3_PORT) : (isSSL ? 443 : 80),
+                useSSL: isSSL,
+                accessKey: process.env.S3_ACCESS_KEY,
+                secretKey: process.env.S3_SECRET_KEY,
             });
             // Инициализацию бакета лучше вызывать отдельно или при старте, чтобы не тормозить конструктор
             this.initializeBucket().catch(err => logger.error(`S3 Init Error: ${err.message}`));
