@@ -23,31 +23,21 @@ class S3Storage {
         this.bucketName = process.env.S3_BUCKET_NAME || 'magically';
 
         if (this.useS3) {
+            // ВНУТРИ DOCKER всегда HTTP, SSL терминируется на nginx
             const isSSL = process.env.S3_USE_SSL === 'true';
-            const port = this.getS3Port(isSSL);
+            const port = process.env.S3_PORT ? parseInt(process.env.S3_PORT) : undefined;
 
             this.client = new Minio.Client({
-                endPoint: process.env.S3_ENDPOINT,
+                endPoint: process.env.S3_ENDPOINT || 'minio',
                 ...(port && { port }),
                 useSSL: isSSL,
-                accessKey: process.env.S3_ACCESS_KEY,
-                secretKey: process.env.S3_SECRET_KEY,
+                accessKey: process.env.S3_ACCESS_KEY || '',
+                secretKey: process.env.S3_SECRET_KEY || '',
             });
 
+            logger.info(`MinIO client initialized: ${process.env.S3_ENDPOINT}:${port}, SSL: ${isSSL}`);
             this.initializeBucket().catch(err => logger.error(`S3 Init Error: ${err.message}`));
         }
-    }
-
-    private getS3Port(isSSL: boolean): number | undefined {
-        const port = process.env.S3_PORT;
-        
-        // На продакшене (SSL) порты стандартные - не указываем
-        if (isSSL) {
-            return undefined;
-        }
-        
-        // На девелопменте используем явно указанный порт
-        return port ? parseInt(port) : undefined;
     }
 
     private async initializeBucket() {
@@ -56,8 +46,10 @@ class S3Storage {
 
             if (!exists) {
                 await this.client.makeBucket(this.bucketName, 'us-east-1');
+                logger.info(`Bucket ${this.bucketName} created`);
             }
 
+            // ПУБЛИЧНАЯ ПОЛИТИКА для анонимного чтения
             const policy = {
                 Version: '2012-10-17',
                 Statement: [
@@ -71,13 +63,11 @@ class S3Storage {
             };
 
             await this.client.setBucketPolicy(this.bucketName, JSON.stringify(policy));
-
-            logger.info('S3 bucket ready + public policy ensured');
+            logger.info(`Bucket ${this.bucketName} policy set to PUBLIC READ`);
         } catch (e: any) {
-            logger.error('S3 init fail: ' + e.message);
+            logger.error(`S3 bucket init failed: ${e.message}`);
         }
     }
-
 
     /**
      * Получение публичной ссылки (Для фронтенда)
@@ -85,52 +75,50 @@ class S3Storage {
     getPublicUrl(keyOrUrl: string): string {
         if (!keyOrUrl) return '';
 
-        // Если это уже полная ссылка (например, от внешнего AI провайдера или уже сформированная), возвращаем
+        // Если это уже полная ссылка
         if (keyOrUrl.startsWith('http')) return keyOrUrl;
 
-        // Убираем начальный слеш для чистоты
+        // Убираем начальный слеш
         const key = keyOrUrl.startsWith('/') ? keyOrUrl.slice(1) : keyOrUrl;
 
         if (!this.useS3) {
-            // Локальный режим: просто путь от корня (nginx/express static раздаст)
             return `/${key}`;
         }
 
-        // S3 режим: формируем ссылку на MinIO/AWS
-        const protocol = process.env.S3_USE_SSL === 'true' ? 'https' : 'http';
-        // S3_PUBLIC_ENDPOINT - это то, что видит браузер (localhost или домен)
-        const endpoint = process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT || 'localhost';
-        const port = process.env.S3_PORT || '9000';
-        const portSuffix = (port !== '80' && port !== '443') ? `:${port}` : '';
+        // КРИТИЧНО: Используем S3_PUBLIC_ENDPOINT для браузера
+        const publicEndpoint = process.env.S3_PUBLIC_ENDPOINT;
 
-        return `${protocol}://${endpoint}${portSuffix}/${this.bucketName}/${key}`;
+        if (!publicEndpoint) {
+            logger.error('S3_PUBLIC_ENDPOINT not set! Browser will not be able to access files.');
+            return `/${key}`;
+        }
+
+        // Для прода: https://s3.staging.app.volshebny.by/magically/file.jpg
+        // publicEndpoint должен быть: https://s3.staging.app.volshebny.by
+        return `${publicEndpoint}/${this.bucketName}/${key}`;
     }
 
     /**
-     * Загрузка файла (Работает и с DiskStorage, и с MemoryStorage)
+     * Загрузка файла
      */
     async uploadFile(
         file: Express.Multer.File,
         directory: string
     ): Promise<UploadResult> {
-        // Генерируем ключ (путь в бакете)
-        // Multer уже дал уникальное имя файлу, используем его
         const key = `${directory}/${file.filename}`;
 
-        // 1. ЛОКАЛЬНЫЙ РЕЖИМ
+        // ЛОКАЛЬНЫЙ РЕЖИМ
         if (!this.useS3) {
-            // Multer (DiskStorage) уже сохранил файл в public/directory/filename
-            // Нам ничего делать не надо, просто вернуть путь.
             return { url: `/${key}`, key };
         }
 
-        // 2. S3 РЕЖИМ
+        // S3 РЕЖИМ
         const metaData = {
             'Content-Type': file.mimetype,
         };
 
         try {
-            // Если файл на диске (DiskStorage) - создаем поток
+            // Если файл на диске
             if (file.path) {
                 const fileStream = fs.createReadStream(file.path);
                 const stats = fs.statSync(file.path);
@@ -143,10 +131,9 @@ class S3Storage {
                     metaData
                 );
 
-                // ВАЖНО: Удаляем локальный файл после загрузки в S3, чтобы не засорять контейнер
                 fs.unlinkSync(file.path);
             }
-            // Если файл в памяти (MemoryStorage) - используем буфер
+            // Если файл в памяти
             else if (file.buffer) {
                 await this.client.putObject(
                     this.bucketName,
@@ -159,7 +146,7 @@ class S3Storage {
                 throw new Error('File has no path and no buffer.');
             }
 
-            // Возвращаем ключ. Метод getPublicUrl сам превратит его в ссылку.
+            logger.info(`File uploaded to S3: ${key}`);
             return { url: key, key };
         } catch (error: any) {
             logger.error(`S3 Upload Error: ${error.message}`);
@@ -175,8 +162,7 @@ class S3Storage {
     }
 
     /**
-     * Скачивание внешнего файла и загрузка в хранилище (S3 или Local)
-     * Используется для сохранения результатов генерации AI
+     * Скачивание внешнего файла и загрузка в хранилище
      */
     async downloadAndUpload(
         imageUrl: string,
@@ -192,10 +178,9 @@ class S3Storage {
                 responseType: 'stream',
             });
 
-            // 1. ЛОКАЛЬНЫЙ РЕЖИМ
+            // ЛОКАЛЬНЫЙ РЕЖИМ
             if (!this.useS3) {
-                // Создаем папку, если нет
-                const localDir = publicDir(directory); // используем утилиту из paths.ts или path.join
+                const localDir = publicDir(directory);
                 if (!fs.existsSync(localDir)) {
                     fs.mkdirSync(localDir, { recursive: true });
                 }
@@ -210,18 +195,9 @@ class S3Storage {
                 });
             }
 
-            // 2. S3 РЕЖИМ
-            // Для S3 нам нужно знать размер, если это stream, либо буферизовать.
-            // MinIO клиент умеет работать со стримом, но иногда просит размер.
-            // Проще всего скачать в буфер или временный файл, но axios stream pipe в MinIO работает.
-
-            // Вариант с pass-through (надежнее скачать в буфер для определения размера, если картинка небольшая)
-            // Но для видео лучше стрим. MinIO putObject требует размер для стрима.
-            // Попробуем получить размер из заголовков.
+            // S3 РЕЖИМ
             const contentLength = response.headers['content-length'];
             if (!contentLength) {
-                // Если размера нет, придется буферизовать (для картинок ок)
-                // Перезапрашиваем как arraybuffer для надежности, если это картинка
                 const bufferResp = await axios.get(imageUrl, { responseType: 'arraybuffer' });
                 await this.client.putObject(
                     this.bucketName,
@@ -240,7 +216,8 @@ class S3Storage {
                 );
             }
 
-            return key; // Возвращаем ключ
+            logger.info(`External file downloaded and uploaded to S3: ${key}`);
+            return key;
         } catch (error: any) {
             logger.error(`DownloadAndUpload Error: ${error.message}`);
             throw new Error('Failed to save generated file');
@@ -253,10 +230,8 @@ class S3Storage {
     async deleteFile(pathOrUrl: string): Promise<void> {
         if (!pathOrUrl) return;
 
-        // Извлекаем ключ из URL или пути
         let key = pathOrUrl;
 
-        // Если это полный URL S3, вырезаем ключ
         if (pathOrUrl.includes(this.bucketName)) {
             const parts = pathOrUrl.split(`${this.bucketName}/`);
             if (parts.length > 1) key = parts[1];
@@ -264,10 +239,8 @@ class S3Storage {
             key = pathOrUrl.substring(1);
         }
 
-        // 1. ЛОКАЛЬНЫЙ РЕЖИМ
+        // ЛОКАЛЬНЫЙ РЕЖИМ
         if (!this.useS3) {
-            // Пытаемся удалить файл физически с диска
-            // Импортируем publicDir динамически или используем process.cwd
             const fullPath = path.join(process.cwd(), 'public', key);
 
             if (fs.existsSync(fullPath)) {
@@ -281,12 +254,11 @@ class S3Storage {
             return;
         }
 
-        // 2. S3 РЕЖИМ
+        // S3 РЕЖИМ
         try {
             await this.client.removeObject(this.bucketName, key);
             logger.info(`Deleted S3 file: ${key}`);
         } catch (error: any) {
-            // Игнорируем ошибку "не найдено", но логируем остальные
             logger.warn(`Error deleting S3 file ${key}: ${error.message}`);
         }
     }
