@@ -20,21 +20,29 @@ class S3Storage {
 
     constructor() {
         this.useS3 = process.env.USE_S3 === 'true';
-        this.bucketName = process.env.S3_BUCKET_NAME || 'volshebny-bucket';
+        this.bucketName = process.env.S3_BUCKET_NAME || 'magically';
 
-        if (this.useS3) {
-            const isSSL = process.env.S3_USE_SSL === 'true';
+        if (!this.useS3) return;
 
-            this.client = new Minio.Client({
-                endPoint: process.env.S3_ENDPOINT,
-                port: process.env.S3_PORT ? parseInt(process.env.S3_PORT) : (isSSL ? 443 : 80),
-                useSSL: isSSL,
-                accessKey: process.env.S3_ACCESS_KEY,
-                secretKey: process.env.S3_SECRET_KEY,
-            });
-            // Инициализацию бакета лучше вызывать отдельно или при старте, чтобы не тормозить конструктор
-            this.initializeBucket().catch(err => logger.error(`S3 Init Error: ${err.message}`));
+        const isSSL = process.env.S3_USE_SSL === 'true';
+
+        const minioConfig: any = {
+            endPoint: process.env.S3_ENDPOINT,
+            useSSL: isSSL,
+            accessKey: process.env.S3_ACCESS_KEY,
+            secretKey: process.env.S3_SECRET_KEY,
+            pathStyle: true,
+        };
+
+        if (process.env.S3_PORT) {
+            minioConfig.port = parseInt(process.env.S3_PORT);
         }
+
+        this.client = new Minio.Client(minioConfig);
+
+        this.initializeBucket().catch(err =>
+            logger.error(`S3 Init Error: ${err.message}`)
+        );
     }
 
     private async initializeBucket() {
