@@ -23,6 +23,30 @@ export interface GenerateOptions {
   safety_tolerance?: number;
 }
 
+const getImageUrl = (src: string) => {
+  if (!src) return '';
+
+  // Убираем начальный слеш
+  const cleanPath = src.startsWith('/') ? src.slice(1) : src;
+
+  // Если включен S3 - формируем прямую ссылку на бакет
+  if (process.env.USE_S3 === 'true') {
+    const protocol = process.env.S3_USE_SSL === 'true' ? 'https' : 'http';
+    // Используем PUBLIC endpoint если есть, иначе fallback на стандартный endpoint (для продакшена)
+    // Для локальной разработки с внешними AI это место может быть узким горлышком, если endpoint = minio/localhost
+    const endpoint = process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT || 'localhost';
+    const port = process.env.S3_PORT || '9000';
+    const bucket = process.env.S3_BUCKET_NAME;
+    
+    const portSuffix = (port !== '80' && port !== '443') ? `:${port}` : '';
+
+    return `${protocol}://${endpoint}${portSuffix}/${bucket}/${cleanPath}`;
+  }
+
+  // Если S3 выключен - отдаем ссылку через наш бэкенд (ngrok/domain)
+  return `${BACKEND_URL}/${cleanPath}`;
+};
+
 export const createModel = async (
   userId: string,
   name: string,
@@ -267,7 +291,7 @@ export const generateImage = async (
   const model = await aiRepository.findModelById(modelId);
   if (!model) throw new Error('Model not found');
 
-  const imageUrls = model.imagePaths.map((p) => `${BACKEND_URL}${p}`);
+  const imageUrls = model.imagePaths.map((p) => getImageUrl(p));
   const finalPrompt = model.instruction
     ? `${model.instruction}. ${prompt}`
     : prompt;
