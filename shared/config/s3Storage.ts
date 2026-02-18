@@ -19,7 +19,7 @@ class S3Storage {
     private useS3: boolean;
 
     constructor() {
-        this.useS3 = process.env.USE_S3 === 'true';
+        this.useS3 = String(process.env.USE_S3).toLowerCase() === 'true';
         this.bucketName = process.env.S3_BUCKET_NAME || 'magically';
 
         if (this.useS3) {
