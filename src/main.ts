@@ -20,6 +20,7 @@ import { startJobPoller } from '../shared/workers/jobPoller';
 import { seedTestData } from '../shared/scripts/seedTestData';
 import { setupAssociations } from '../shared/models/associations';
 import { initializeSocketIO } from '../shared/utils/socketManager';
+import { ensurePublicDirs } from "../shared/middleware/upload";
 
 dotenv.config();
 
@@ -105,19 +106,8 @@ app.use(
 // Initialize database and start server
 const startServer = async () => {
   try {
-    // Fallback for non-existent dirs
-    const dirs = [
-      "/app/public",
-      "/app/public/users",
-      "/app/public/users/avatars",
-    ];
-
-    dirs.forEach(d => {
-      if (!fs.existsSync(d)) {
-        fs.mkdirSync(d, { recursive: true });
-      }
-    });
-
+    // For production TEMPORARY FIX
+    ensurePublicDirs();
     // Initialize associations
     setupAssociations();
     // Initialize database
