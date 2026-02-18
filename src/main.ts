@@ -1,5 +1,5 @@
+import fs from "fs";
 import cors from 'cors';
-import path from 'path';
 import http from 'http';
 import dotenv from 'dotenv';
 import express from 'express';
@@ -9,6 +9,7 @@ import cookieParser from 'cookie-parser';
 import db from '../shared/config/database';
 import logger from '../shared/utils/logger';
 import promBundle from 'express-prom-bundle';
+
 import '../shared/config/passport';
 
 import { pinoHttp } from 'pino-http';
@@ -104,6 +105,19 @@ app.use(
 // Initialize database and start server
 const startServer = async () => {
   try {
+    // Fallback for non-existent dirs
+    const dirs = [
+      "/app/public",
+      "/app/public/users",
+      "/app/public/users/avatars",
+    ];
+
+    dirs.forEach(d => {
+      if (!fs.existsSync(d)) {
+        fs.mkdirSync(d, { recursive: true });
+      }
+    });
+
     // Initialize associations
     setupAssociations();
     // Initialize database
