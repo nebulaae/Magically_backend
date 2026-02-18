@@ -118,6 +118,8 @@ const startServer = async () => {
     // Admin
     await createAdmin();
 
+    logger.info(`USE_S3 = ${process.env.USE_S3}`);
+
     server.listen(PORT, () => {
       logger.info(`Server successfully started and running on port ${PORT}`);
       startJobPoller(io);
