@@ -11,7 +11,24 @@ export const login = async (req: Request, res: Response) => {
     return apiResponse.unauthorized(res, 'Invalid admin credentials');
   }
 
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookie('admin_token', result.token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 дней
+  });
+
   apiResponse.success(res, result, 'Admin login successful.');
+};
+
+export const logout = (_req: Request, res: Response) => {
+  res.clearCookie('admin_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  });
+  apiResponse.success(res, null, 'Admin logged out successfully.');
 };
 
 export const getAllUsers = async (_req: Request, res: Response) => {

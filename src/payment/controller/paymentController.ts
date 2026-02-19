@@ -1,28 +1,35 @@
-import logger from "../../../shared/utils/logger";
-import { Request, Response } from "express";
-import * as paymentService from "../service/paymentService";
-import * as apiResponse from "../../../shared/utils/apiResponse";
+import logger from '../../../shared/utils/logger';
+import { Request, Response } from 'express';
+import * as paymentService from '../service/paymentService';
+import * as apiResponse from '../../../shared/utils/apiResponse';
 
 // Обработка ошибок
 const handleErrors = (error: Error, res: Response) => {
   logger.error(error.message);
-  if (error.message.includes("not found"))
+  if (error.message.includes('not found'))
     return apiResponse.notFound(res, error.message);
-  if (error.message.includes("already"))
+  if (error.message.includes('already'))
     return apiResponse.conflict(res, error.message);
-  apiResponse.internalError(res, "Server error");
+  apiResponse.internalError(res, 'Server error');
 };
 
 // Создает новый платеж
 export const createPayment = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
-    const { amount, currency, paymentMethod, paymentProvider, description, metadata } = req.body;
+    const {
+      amount,
+      currency,
+      paymentMethod,
+      paymentProvider,
+      description,
+      metadata,
+    } = req.body;
 
     if (!amount || !paymentMethod) {
       return apiResponse.badRequest(
         res,
-        "Amount and payment method are required",
+        'Amount and payment method are required'
       );
     }
 
@@ -36,7 +43,7 @@ export const createPayment = async (req: Request, res: Response) => {
       metadata,
     });
 
-    apiResponse.success(res, { payment }, "Payment created successfully");
+    apiResponse.success(res, { payment }, 'Payment created successfully');
   } catch (error) {
     handleErrors(error as Error, res);
   }
@@ -60,14 +67,14 @@ export const createPaymentWithToken = async (req: Request, res: Response) => {
     if (!amount || !paymentMethod || !paymentProvider) {
       return apiResponse.badRequest(
         res,
-        "Amount, payment method and payment provider are required",
+        'Amount, payment method and payment provider are required'
       );
     }
 
     // Валидация провайдера
-    const validProviders = ["bepaid"];
+    const validProviders = ['bepaid'];
     if (!validProviders.includes(paymentProvider)) {
-      return apiResponse.badRequest(res, "Invalid payment provider");
+      return apiResponse.badRequest(res, 'Invalid payment provider');
     }
 
     const result = await paymentService.createPaymentWithToken({
@@ -89,7 +96,7 @@ export const createPaymentWithToken = async (req: Request, res: Response) => {
         paymentToken: result.paymentToken,
         redirectUrl: result.redirectUrl,
       },
-      "Payment created successfully",
+      'Payment created successfully'
     );
   } catch (error) {
     handleErrors(error as Error, res);
@@ -100,12 +107,12 @@ export const createPaymentWithToken = async (req: Request, res: Response) => {
 export const getMyPayments = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
-    const { page = "1", limit = "20" } = req.query;
+    const { page = '1', limit = '20' } = req.query;
 
     const result = await paymentService.getUserPaymentHistory(
       userId,
       Number(page),
-      Number(limit),
+      Number(limit)
     );
 
     apiResponse.success(res, result);
@@ -123,8 +130,8 @@ export const getPaymentById = async (req: Request, res: Response) => {
     const payment = await paymentService.getPaymentById(paymentId);
 
     // Проверяем, что платеж принадлежит текущему пользователю или пользователь - админ
-    if (payment.userId !== req.user.id && req.user.role !== "admin") {
-      return apiResponse.forbidden(res, "Access denied");
+    if (payment.userId !== req.user.id && req.user.role !== 'admin') {
+      return apiResponse.forbidden(res, 'Access denied');
     }
 
     apiResponse.success(res, { payment });
@@ -142,29 +149,32 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
     const { status, externalPaymentId } = req.body;
 
     if (!status) {
-      return apiResponse.badRequest(res, "Status is required");
+      return apiResponse.badRequest(res, 'Status is required');
     }
 
     const validStatuses = [
-      "pending",
-      "completed",
-      "failed",
-      "refunded",
-      "cancelled",
+      'pending',
+      'completed',
+      'failed',
+      'refunded',
+      'cancelled',
     ];
     if (!validStatuses.includes(status)) {
-      return apiResponse.badRequest(res, "Invalid status");
+      return apiResponse.badRequest(res, 'Invalid status');
     }
 
     const payment = await paymentService.updatePaymentStatus(
       paymentId,
       status,
-      externalPaymentId,
+      externalPaymentId
     );
 
-    apiResponse.success(res, { payment }, "Payment status updated successfully");
+    apiResponse.success(
+      res,
+      { payment },
+      'Payment status updated successfully'
+    );
   } catch (error) {
     handleErrors(error as Error, res);
   }
 };
-

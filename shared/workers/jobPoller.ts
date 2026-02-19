@@ -4,7 +4,10 @@ import logger from '../utils/logger';
 import { Server as SocketIOServer } from 'socket.io';
 import { getUserSocketId } from '../utils/socketManager';
 import { GenerationJob } from '../../src/publication/models/GenerationJob';
-import { performTransaction, checkUserBalance } from '../../src/transaction/service/transactionService';
+import {
+  performTransaction,
+  checkUserBalance,
+} from '../../src/transaction/service/transactionService';
 
 import * as aiService from '../../src/ai/service/aiService';
 
@@ -39,6 +42,9 @@ const pollJobs = async (io: SocketIOServer) => {
 
   if (activeJobs.length === 0) return;
 
+  const TEN_MINUTES_MS = 10 * 60 * 1000;
+  const now = Date.now();
+
   for (const job of activeJobs) {
     try {
       let isComplete = false;
@@ -47,6 +53,23 @@ const pollJobs = async (io: SocketIOServer) => {
       let errorMessage: string | undefined;
 
       let statusData;
+
+      if (now - new Date(job.createdAt).getTime() > TEN_MINUTES_MS) {
+        job.status = 'failed';
+        job.errorMessage = 'Job timed out after 10 minutes';
+        await job.save();
+
+        const userSocketId = getUserSocketId(job.userId);
+        if (userSocketId) {
+          io.to(userSocketId).emit('jobUpdate', {
+            type: 'failed',
+            jobId: job.id,
+            error: job.errorMessage,
+          });
+        }
+        logger.warn(`Job ${job.id} marked as failed due to timeout.`);
+        continue;
+      }
 
       if (job.service === 'ai') {
         const provider = job.meta.provider || 'unifically';
@@ -169,7 +192,9 @@ const pollJobs = async (io: SocketIOServer) => {
               });
             }
 
-            logger.error(`Job ${job.id} failed: Insufficient tokens for user ${job.userId}`);
+            logger.error(
+              `Job ${job.id} failed: Insufficient tokens for user ${job.userId}`
+            );
             continue;
           }
 

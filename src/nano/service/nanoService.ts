@@ -59,7 +59,11 @@ export const processFinalImage = async (
 ) => {
   const filename = `${uuidv4()}.png`;
 
-  const localImagePath = await s3Storage.downloadAndUpload(imageUrl, 'images/nano', filename);
+  const localImagePath = await s3Storage.downloadAndUpload(
+    imageUrl,
+    'images/nano',
+    filename
+  );
 
   if (publish) {
     return nanoRepository.createPublication(

@@ -1,6 +1,7 @@
 import logger from './logger';
 import { Transaction } from 'sequelize';
 import { User } from '../../src/user/models/User';
+import { Setting } from '../../src/admin/models/Setting';
 import { Comment } from '../../src/comment/models/Comment';
 import { LikedComment } from '../../src/comment/models/LikedComment';
 import { performTransaction } from '../../src/transaction/service/transactionService';
@@ -62,34 +63,28 @@ export const handleUserAction = async (
 // Deducts tokens for generation actions.
 export const deductTokensForGeneration = async (
   userId: string,
-  type: 'image' | 'video' | 'training',
+  type: 'image' | 'video', // Убрали 'training'
   t: Transaction
 ) => {
+  const settings = await Setting.findByPk(1) || { imageCost: 15, videoCost: 40 };
+
   let cost = 0;
   let desc = '';
   switch (type) {
     case 'image':
-      cost = 15;
+      cost = settings.imageCost;
       desc = 'Generation: Image';
       break;
     case 'video':
-      cost = 40;
+      cost = settings.videoCost;
       desc = 'Generation: Video';
-      break;
-    case 'training':
-      cost = 150;
-      desc = 'Model Training';
       break;
   }
 
   await performTransaction(userId, cost, 'debit', desc, t);
 };
 
-// Helper function to recursively fetch replies
-export const fetchReplies = async (
-  comment: Comment,
-  userId: string
-) => {
+export const fetchReplies = async (comment: Comment, userId: string) => {
   const replies = await Comment.findAll({
     where: { parentId: comment.id },
     include: [

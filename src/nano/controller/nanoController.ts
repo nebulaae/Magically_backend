@@ -24,7 +24,7 @@ export const generateImage = async (req: Request, res: Response) => {
 
     if (file) {
       // ИСПРАВЛЕНИЕ: Загружаем init-image в S3 (или оставляем локально)
-      // uploadFile вернет объект { url, key }. 
+      // uploadFile вернет объект { url, key }.
       // Но нам нужен полный URL для API Nano, чтобы он мог скачать картинку.
       const { key } = await s3Storage.uploadFile(file, 'ai/nano');
 

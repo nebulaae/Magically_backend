@@ -1,5 +1,5 @@
-import db from "../../../shared/config/database";
-import { Model, DataTypes } from "sequelize";
+import db from '../../../shared/config/database';
+import { Model, DataTypes } from 'sequelize';
 
 // --- Payment Model Attributes ---
 export interface PaymentAttributes {
@@ -7,9 +7,9 @@ export interface PaymentAttributes {
   userId: string;
   amount: number;
   currency: string;
-  status: "pending" | "completed" | "failed" | "refunded" | "cancelled";
+  status: 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
   paymentMethod: string;
-  paymentProvider?: "bepaid";
+  paymentProvider?: 'bepaid';
   externalPaymentId?: string;
   paymentToken?: string;
   redirectUrl?: string;
@@ -28,9 +28,9 @@ export class Payment
   public userId!: string;
   public amount!: number;
   public currency!: string;
-  public status!: "pending" | "completed" | "failed" | "refunded" | "cancelled";
+  public status!: 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
   public paymentMethod!: string;
-  public paymentProvider?: "bepaid";
+  public paymentProvider?: 'bepaid';
   public externalPaymentId?: string;
   public paymentToken?: string;
   public redirectUrl?: string;
@@ -53,8 +53,8 @@ Payment.init(
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: "users",
-        key: "id",
+        model: 'users',
+        key: 'id',
       },
     },
     amount: {
@@ -64,25 +64,25 @@ Payment.init(
     currency: {
       type: DataTypes.STRING(3),
       allowNull: false,
-      defaultValue: "RUB",
+      defaultValue: 'RUB',
     },
     status: {
       type: DataTypes.ENUM(
-        "pending",
-        "completed",
-        "failed",
-        "refunded",
-        "cancelled",
+        'pending',
+        'completed',
+        'failed',
+        'refunded',
+        'cancelled'
       ),
       allowNull: false,
-      defaultValue: "pending",
+      defaultValue: 'pending',
     },
     paymentMethod: {
       type: DataTypes.STRING(50),
       allowNull: false,
     },
     paymentProvider: {
-      type: DataTypes.ENUM("bepaid"),
+      type: DataTypes.ENUM('bepaid'),
       allowNull: true,
     },
     externalPaymentId: {
@@ -109,8 +109,7 @@ Payment.init(
   },
   {
     sequelize: db,
-    modelName: "Payment",
-    tableName: "payments",
-  },
+    modelName: 'Payment',
+    tableName: 'payments',
+  }
 );
-

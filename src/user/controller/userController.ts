@@ -83,7 +83,7 @@ export const updateAvatar = async (req: Request, res: Response) => {
 
     const avatarUrlPath = await handleFileUpload(req.file, 'users/avatars');
     const user = await userService.updateAvatar(userId, avatarUrlPath);
-    
+
     apiResponse.success(res, { user }, 'Avatar updated successfully');
   } catch (error) {
     handleErrors(error, res);

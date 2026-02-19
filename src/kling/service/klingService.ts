@@ -74,7 +74,11 @@ export const processFinalVideo = async (
 ) => {
   const filename = `${uuidv4()}.mp4`;
 
-  const localPath = await s3Storage.downloadAndUpload(videoUrl, 'videos/kling', filename);
+  const localPath = await s3Storage.downloadAndUpload(
+    videoUrl,
+    'videos/kling',
+    filename
+  );
 
   if (publish) {
     return klingRepository.createPublication(

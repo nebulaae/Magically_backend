@@ -39,7 +39,7 @@ export const generateVideo = async (req: Request, res: Response) => {
       // Убираем начальный слеш, если он есть, чтобы не было //
       const cleanKey = key.startsWith('/') ? key.slice(1) : key;
       imageUrlForApi = `${process.env.BACKEND_URL}/${cleanKey}`;
-    };
+    }
 
     const payload = {
       model: model || 'kling-v1',

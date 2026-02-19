@@ -1,8 +1,8 @@
-import { Request, Response } from "express";
-import logger from "../../../shared/utils/logger";
-import * as currencyService from "../service/currencyService";
-import { calculateTokensFromPayment } from "../service/currencyConversionService";
-import * as apiResponse from "../../../shared/utils/apiResponse";
+import { Request, Response } from 'express';
+import logger from '../../../shared/utils/logger';
+import * as currencyService from '../service/currencyService';
+import { calculateTokensFromPayment } from '../service/currencyConversionService';
+import * as apiResponse from '../../../shared/utils/apiResponse';
 
 // Получает валюту по IP адресу пользователя
 export const getCurrency = async (req: Request, res: Response) => {
@@ -18,7 +18,7 @@ export const getCurrency = async (req: Request, res: Response) => {
     logger.error(`Error in getCurrency controller: ${error.message}`);
     // В случае ошибки возвращаем дефолтную валюту
     apiResponse.success(res, {
-      currency: "RUB",
+      currency: 'RUB',
       country: null,
       ip: null,
     });
@@ -31,17 +31,14 @@ export const calculateTokens = async (req: Request, res: Response) => {
     const { amount, currency } = req.query;
 
     if (!amount || !currency) {
-      return apiResponse.badRequest(
-        res,
-        "Amount and currency are required",
-      );
+      return apiResponse.badRequest(res, 'Amount and currency are required');
     }
 
     const amountNum = Number(amount);
     const currencyStr = String(currency);
 
     if (isNaN(amountNum) || amountNum <= 0) {
-      return apiResponse.badRequest(res, "Amount must be a positive number");
+      return apiResponse.badRequest(res, 'Amount must be a positive number');
     }
 
     // Рассчитываем количество токенов
@@ -54,6 +51,6 @@ export const calculateTokens = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     logger.error(`Error in calculateTokens controller: ${error.message}`);
-    apiResponse.internalError(res, "Failed to calculate tokens");
+    apiResponse.internalError(res, 'Failed to calculate tokens');
   }
 };

@@ -3,8 +3,10 @@ import logger from '../../../shared/utils/logger';
 
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from 'sequelize';
-import { GenerationJob } from '../../publication/models/GenerationJob';
+import { Setting } from '../../admin/models/Setting';
 import { s3Storage } from '../../../shared/config/s3Storage';
+import { GenerationJob } from '../../publication/models/GenerationJob';
+
 import * as aiRepository from '../repository/aiRepository';
 
 const UNIFICALLY_API_KEY = process.env.FLUX_API_KEY;
@@ -12,16 +14,20 @@ const UNIFICALLY_URL = 'https://api.unifically.com/v1/tasks';
 const TTAPI_KEY = process.env.TTAPI_KEY;
 const TTAPI_URL = 'https://api.ttapi.io';
 const BACKEND_URL = process.env.BACKEND_URL;
-const SYSTEM_INSTRUCTIONS = process.env.SYSTEM_PROMPT;
 
 export interface GenerateOptions {
   width?: number;
   height?: number;
   seed?: number;
-  quality: "1K" | "2K";
+  quality: '1K' | '2K';
   aspect_ratio?: string;
   safety_tolerance?: number;
 }
+
+const getSystemPrompt = async () => {
+  const settings = await Setting.findByPk(1);
+  return settings?.systemPrompt || '';
+};
 
 const getImageUrl = (src: string) => {
   if (!src) return '';
@@ -34,11 +40,12 @@ const getImageUrl = (src: string) => {
     const protocol = process.env.S3_USE_SSL === 'true' ? 'https' : 'http';
     // Используем PUBLIC endpoint если есть, иначе fallback на стандартный endpoint (для продакшена)
     // Для локальной разработки с внешними AI это место может быть узким горлышком, если endpoint = minio/localhost
-    const endpoint = process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT || 'localhost';
+    const endpoint =
+      process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT || 'localhost';
     const port = process.env.S3_PORT || '9000';
     const bucket = process.env.S3_BUCKET_NAME;
-    
-    const portSuffix = (port !== '80' && port !== '443') ? `:${port}` : '';
+
+    const portSuffix = port !== '80' && port !== '443' ? `:${port}` : '';
 
     return `${protocol}://${endpoint}${portSuffix}/${bucket}/${cleanPath}`;
   }
@@ -102,15 +109,17 @@ export const updateModel = async (
       toDelete = data.imagesToDelete;
     }
 
-    await Promise.all(toDelete.map(async (pathToDelete) => {
-      currentImages = currentImages.filter(p => p !== pathToDelete);
-      await s3Storage.deleteFile(pathToDelete);
-    }));
+    await Promise.all(
+      toDelete.map(async (pathToDelete) => {
+        currentImages = currentImages.filter((p) => p !== pathToDelete);
+        await s3Storage.deleteFile(pathToDelete);
+      })
+    );
   }
 
   if (files && files.length > 0) {
     const uploadResults = await s3Storage.uploadFiles(files, 'ai/models');
-    const newImagePaths = uploadResults.map(res => res.url);
+    const newImagePaths = uploadResults.map((res) => res.url);
     currentImages = [...currentImages, ...newImagePaths];
   }
 
@@ -172,18 +181,20 @@ const callUnifically = async (
   prompt: string,
   imageUrls: string[],
   options: GenerateOptions
-): Promise<{ provider: 'unifically', taskId: string }> => {
+): Promise<{ provider: 'unifically'; taskId: string }> => {
   try {
     const selectedImages = selectRandomImages(imageUrls, 4);
+    const sysPrompt = await getSystemPrompt();
+    const finalPrompt = sysPrompt ? `${sysPrompt}\n${prompt}` : prompt;
 
     const payload = {
-      model: "black-forest-labs/flux.2-max",
+      model: 'black-forest-labs/flux.2-max',
       input: {
-        prompt: SYSTEM_INSTRUCTIONS + prompt,
+        prompt: finalPrompt,
         image_urls: selectedImages,
         aspect_ratio: options.aspect_ratio || '1:1',
-        resolution: options.quality === '2K' ? '2k' : '1k'
-      }
+        resolution: options.quality === '2K' ? '2k' : '1k',
+      },
     };
 
     logger.info(
@@ -212,7 +223,8 @@ const callUnifically = async (
     logger.info(`[Unifically] Success with task_id: ${taskId}`);
     return { provider: 'unifically', taskId };
   } catch (error: any) {
-    const errorMsg = error.response?.data?.message || error.response?.data || error.message;
+    const errorMsg =
+      error.response?.data?.message || error.response?.data || error.message;
     logger.error(`[Unifically] Failed: ${JSON.stringify(errorMsg)}`);
     throw error;
   }
@@ -222,14 +234,19 @@ const callTTAPI = async (
   prompt: string,
   imageUrls: string[],
   options: GenerateOptions
-): Promise<{ provider: 'ttapi', taskId: string }> => {
+): Promise<{ provider: 'ttapi'; taskId: string }> => {
   try {
     const selectedImages = selectRandomImages(imageUrls, 4);
+    const sysPrompt = await getSystemPrompt();
+    const finalPrompt = sysPrompt ? `${sysPrompt}\n${prompt}` : prompt;
 
-    const { width, height } = getSizeByQuality(options.quality, options.aspect_ratio);
+    const { width, height } = getSizeByQuality(
+      options.quality,
+      options.aspect_ratio
+    );
 
     const requestBody: any = {
-      prompt: SYSTEM_INSTRUCTIONS + prompt,
+      prompt: finalPrompt,
       width: options.width || width,
       height: options.height || height,
       seed: options.seed,
@@ -276,7 +293,8 @@ const callTTAPI = async (
     logger.info(`[TTAPI] Success with jobId: ${taskId}`);
     return { provider: 'ttapi', taskId };
   } catch (error: any) {
-    const errorMsg = error.response?.data?.message || error.response?.data || error.message;
+    const errorMsg =
+      error.response?.data?.message || error.response?.data || error.message;
     logger.error(`[TTAPI] Failed: ${JSON.stringify(errorMsg)}`);
     throw error;
   }
@@ -296,7 +314,7 @@ export const generateImage = async (
     ? `${model.instruction}. ${prompt}`
     : prompt;
 
-  const [width, height] = parseAspectRatio(options.aspect_ratio || '1:1');
+  const { width, height } = getDimensions(options.quality, options.aspect_ratio);
 
   logger.info(
     `[AI Service] Starting generation for user ${userId} with ${imageUrls.length} images in model`
@@ -366,7 +384,11 @@ export const processFinalImage = async (
   // Скачиваем из URL провайдера и заливаем в наш S3 (или локально)
   // s3Storage сам сгенерирует имя файла
   const filename = `${uuidv4()}.png`;
-  const savedUrl = await s3Storage.downloadAndUpload(imageUrl, 'images/ai', filename);
+  const savedUrl = await s3Storage.downloadAndUpload(
+    imageUrl,
+    'images/ai',
+    filename
+  );
 
   if (jobId) {
     const job = await GenerationJob.findByPk(jobId, { transaction: t });
@@ -374,12 +396,15 @@ export const processFinalImage = async (
       job.resultUrl = savedUrl;
       job.status = 'completed';
       if (publish) {
-        await aiRepository.createPublication({
-          userId,
-          content: prompt,
-          imageUrl: savedUrl,
-          category: 'ai'
-        }, t);
+        await aiRepository.createPublication(
+          {
+            userId,
+            content: prompt,
+            imageUrl: savedUrl,
+            category: 'ai',
+          },
+          t
+        );
         job.isPublished = true;
       }
       await job.save({ transaction: t });
@@ -389,19 +414,32 @@ export const processFinalImage = async (
   return { imageUrl: savedUrl };
 };
 
-const parseAspectRatio = (ar: string): [number, number] => {
-  const map: Record<string, [number, number]> = {
-    '1:1': [1024, 1024],
-    '16:9': [1024, 576],
-    '9:16': [576, 1024],
-    '4:3': [1024, 768],
-    '3:4': [768, 1024],
-  };
-  return map[ar] || [1024, 1024];
+const getDimensions = (quality: "1K" | "2K" = "1K", aspectRatio: string = "1:1"): { width: number, height: number } => {
+  const baseSize = quality === "2K" ? 2048 : 1024;
+  const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
+
+  if (!wRatio || !hRatio || wRatio === hRatio) {
+    return { width: baseSize, height: baseSize };
+  }
+
+  if (wRatio > hRatio) {
+    return {
+      width: baseSize,
+      height: Math.round((baseSize * (hRatio / wRatio)) / 8) * 8
+    };
+  } else {
+    return {
+      width: Math.round((baseSize * (wRatio / hRatio)) / 8) * 8,
+      height: baseSize
+    };
+  }
 };
 
-const getSizeByQuality = (quality: "1K" | "2K" = "1K", aspectRatio: string = "1:1"): { width: number, height: number } => {
-  const baseSize = quality === "2K" ? 2048 : 1024;
+const getSizeByQuality = (
+  quality: '1K' | '2K' = '1K',
+  aspectRatio: string = '1:1'
+): { width: number; height: number } => {
+  const baseSize = quality === '2K' ? 2048 : 1024;
 
   const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
 
@@ -410,8 +448,14 @@ const getSizeByQuality = (quality: "1K" | "2K" = "1K", aspectRatio: string = "1:
   if (wRatio === hRatio) return { width: baseSize, height: baseSize };
 
   if (wRatio > hRatio) {
-    return { width: baseSize, height: Math.round(baseSize * (hRatio / wRatio)) };
+    return {
+      width: baseSize,
+      height: Math.round(baseSize * (hRatio / wRatio)),
+    };
   } else {
-    return { width: Math.round(baseSize * (wRatio / hRatio)), height: baseSize };
+    return {
+      width: Math.round(baseSize * (wRatio / hRatio)),
+      height: baseSize,
+    };
   }
 };
