@@ -1,4 +1,4 @@
-import fs from "fs";
+import fs from 'fs';
 import cors from 'cors';
 import http from 'http';
 import dotenv from 'dotenv';
@@ -20,7 +20,7 @@ import { startJobPoller } from '../shared/workers/jobPoller';
 import { seedTestData } from '../shared/scripts/seedTestData';
 import { setupAssociations } from '../shared/models/associations';
 import { initializeSocketIO } from '../shared/utils/socketManager';
-import { ensurePublicDirs } from "../shared/middleware/upload";
+import { ensurePublicDirs } from '../shared/middleware/upload';
 
 dotenv.config();
 
@@ -68,13 +68,13 @@ app.use(cookieParser());
 
 // Middleware для сохранения raw body для webhook путей (нужно для проверки подписи)
 app.use(
-  "/api/v1/payment/webhook/bepaid",
-  express.raw({ type: "application/json" }),
+  '/api/v1/payment/webhook/bepaid',
+  express.raw({ type: 'application/json' }),
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     // Сохраняем raw body в req.rawBody для дальнейшего использования
     (req as any).rawBody = req.body;
     next();
-  },
+  }
 );
 
 app.use(express.json());

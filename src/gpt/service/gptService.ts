@@ -55,7 +55,11 @@ export const processFinalImage = async (
 ) => {
   const filename = `${uuidv4()}.png`;
 
-  const localImagePath = await s3Storage.downloadAndUpload(imageUrl, 'images/gpt', filename);
+  const localImagePath = await s3Storage.downloadAndUpload(
+    imageUrl,
+    'images/gpt',
+    filename
+  );
 
   if (publish) {
     return gptRepository.createPublication(

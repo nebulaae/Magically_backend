@@ -15,7 +15,7 @@ import commentRoutes from './comment/comment';
 import higgsfieldRoutes from './higgsfield/higgsfield';
 import publicationRoutes from './publication/publication';
 import transactionRoutes from './transaction/transaction';
-import paymentRoutes from "./payment/payment";
+import paymentRoutes from './payment/payment';
 
 import { swaggerDefinition } from './swagger';
 
@@ -43,7 +43,7 @@ router.use('/gallery', galleryRoutes);
 router.use('/comments', commentRoutes);
 router.use('/higgsfield', higgsfieldRoutes);
 router.use('/transaction', transactionRoutes);
-router.use("/payment", paymentRoutes);
+router.use('/payment', paymentRoutes);
 router.use('/publications', publicationRoutes);
 
 export default router;

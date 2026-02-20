@@ -57,7 +57,7 @@ const fileFilter = (
   cb(
     new Error(
       'Error: File upload only supports the following filetypes - ' +
-      allowedTypes
+        allowedTypes
     )
   );
 };
@@ -283,37 +283,37 @@ export const deleteFiles = async (filePaths: string[]): Promise<void> => {
 
 export const ensurePublicDirs = () => {
   const dirs = [
-    "/app/public",
+    '/app/public',
 
     // users
-    "/app/public/users",
-    "/app/public/users/avatars",
+    '/app/public/users',
+    '/app/public/users/avatars',
 
     // publications
-    "/app/public/publications",
+    '/app/public/publications',
 
     // images root
-    "/app/public/images",
+    '/app/public/images',
 
     // images/ai
-    "/app/public/images/ai",
-    "/app/public/images/ai/flux",
-    "/app/public/images/ai/gpt",
-    "/app/public/images/ai/nano",
-    "/app/public/images/ai/ttapi",
+    '/app/public/images/ai',
+    '/app/public/images/ai/flux',
+    '/app/public/images/ai/gpt',
+    '/app/public/images/ai/nano',
+    '/app/public/images/ai/ttapi',
 
     // ai root
-    "/app/public/ai",
-    "/app/public/ai/flux",
-    "/app/public/ai/gpt",
-    "/app/public/ai/higgsfield",
-    "/app/public/ai/kling",
-    "/app/public/ai/models",
-    "/app/public/ai/nano",
-    "/app/public/ai/ttapi",
+    '/app/public/ai',
+    '/app/public/ai/flux',
+    '/app/public/ai/gpt',
+    '/app/public/ai/higgsfield',
+    '/app/public/ai/kling',
+    '/app/public/ai/models',
+    '/app/public/ai/nano',
+    '/app/public/ai/ttapi',
 
     // videos
-    "/app/public/videos",
+    '/app/public/videos',
   ];
 
   dirs.forEach((dir) => {
@@ -324,9 +324,8 @@ export const ensurePublicDirs = () => {
       }
     } catch (e) {
       logger.error(`[mkdir]: ${dir}, ${e}`);
-
     }
   });
 
-  logger.info("Public dirs ensured");
+  logger.info('Public dirs ensured');
 };

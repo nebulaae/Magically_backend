@@ -1,5 +1,5 @@
-import axios from "axios";
-import logger from "../../../shared/utils/logger";
+import axios from 'axios';
+import logger from '../../../shared/utils/logger';
 
 // Кэш курсов валют (обновляется при каждом запросе или можно добавить TTL)
 let exchangeRatesCache: Record<string, number> | null = null;
@@ -50,13 +50,13 @@ async function fetchExchangeRates(): Promise<Record<string, number> | null> {
       if (baseRates) {
         // Для каждой валюты вычисляем курс к RUB
         Object.keys(baseRates).forEach((currency) => {
-          if (currency !== "RUB" && baseRates[currency] > 0) {
+          if (currency !== 'RUB' && baseRates[currency] > 0) {
             rates[currency] = 1 / baseRates[currency];
           }
         });
       }
 
-      rates["RUB"] = 1.0; // RUB к RUB всегда 1
+      rates['RUB'] = 1.0; // RUB к RUB всегда 1
 
       return rates;
     }
@@ -64,20 +64,18 @@ async function fetchExchangeRates(): Promise<Record<string, number> | null> {
     return null;
   } catch (error: any) {
     logger.warn(
-      `Failed to fetch exchange rates from API: ${error.message}. Using static rates.`,
+      `Failed to fetch exchange rates from API: ${error.message}. Using static rates.`
     );
     return null;
   }
 }
 
 // Получает курс валюты к RUB
-export async function getExchangeRateToRUB(
-  currency: string,
-): Promise<number> {
+export async function getExchangeRateToRUB(currency: string): Promise<number> {
   const currencyUpper = currency.toUpperCase();
 
   // RUB всегда равен 1
-  if (currencyUpper === "RUB") {
+  if (currencyUpper === 'RUB') {
     return 1.0;
   }
 
@@ -107,7 +105,7 @@ export async function getExchangeRateToRUB(
 
   // Если курс не найден, логируем предупреждение и используем дефолтный курс
   logger.warn(
-    `Exchange rate for ${currencyUpper} not found, using default rate 1.0`,
+    `Exchange rate for ${currencyUpper} not found, using default rate 1.0`
   );
   return 1.0;
 }
@@ -115,7 +113,7 @@ export async function getExchangeRateToRUB(
 // Конвертирует сумму из одной валюты в RUB
 export async function convertToRUB(
   amount: number,
-  fromCurrency: string,
+  fromCurrency: string
 ): Promise<number> {
   const rate = await getExchangeRateToRUB(fromCurrency);
   return amount * rate;
@@ -134,7 +132,7 @@ export async function convertToRUB(
 //   Платеж 10 USD (курс 100 RUB/USD) -> 1000 RUB -> 100 токенов
 export async function calculateTokensFromPayment(
   amount: number,
-  currency: string,
+  currency: string
 ): Promise<number> {
   // Конвертируем сумму в RUB
   const amountInRUB = await convertToRUB(amount, currency);

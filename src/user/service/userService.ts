@@ -126,13 +126,13 @@ export const updateAvatar = async (userId: string, avatarPath: string) => {
   if (!user) throw new Error('User not found');
 
   if (user.avatar) {
-      await s3Storage.deleteFile(user.avatar);
+    await s3Storage.deleteFile(user.avatar);
   }
 
   const updatedUser = await userRepository.updateUser(user, {
     avatar: avatarPath,
   });
-  
+
   await invalidateCache(`user:profile:${user.username}`);
   const { password, ...userResponse } = updatedUser.get({ plain: true });
   return userResponse;

@@ -1,5 +1,7 @@
 import express from 'express';
+
 import * as adminController from './controller/adminController';
+import * as settingController from './controller/settingController';
 
 import { auth } from '../../shared/middleware/auth';
 import { adminAuth } from '../../shared/middleware/adminAuth';
@@ -8,6 +10,7 @@ import { asyncHandler } from '../../shared/utils/asyncHandler';
 const router = express.Router();
 
 router.post('/login', asyncHandler(adminController.login));
+router.post('/logout', asyncHandler(adminController.logout));
 
 // All routes below are protected and require admin role
 router.use(auth, adminAuth);
@@ -29,5 +32,8 @@ router.delete(
   asyncHandler(adminController.deleteUserComment)
 );
 router.get('/analytics', asyncHandler(adminController.getAnalytics));
+
+router.get('/settings', asyncHandler(settingController.getSettings));
+router.put('/settings', asyncHandler(settingController.updateSettings));
 
 export default router;
