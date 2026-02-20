@@ -8,6 +8,9 @@ import { LikedComment } from "../../src/comment/models/LikedComment";
 import { Publication } from "../../src/publication/models/Publication";
 import { GenerationJob } from "../../src/publication/models/GenerationJob";
 import { LikedPublication } from "../../src/publication/models/LikedPublication";
+import { Plan } from "../../src/plans/models/Plan";
+import { UserPlan } from "../../src/plans/models/UserPlan";
+import { TopUp } from "../../src/plans/models/TopUp";
 
 export const setupAssociations = () => {
   // User -> Publication (One-to-Many)
@@ -127,6 +130,53 @@ export const setupAssociations = () => {
   Payment.belongsTo(User, {
     foreignKey: "userId",
     as: "user",
+  });
+
+  User.hasMany(UserPlan, {
+    foreignKey: "userId",
+    as: "userPlans",
+    onDelete: "CASCADE",
+  });
+  UserPlan.belongsTo(User, {
+    foreignKey: "userId",
+    as: "user",
+  });
+
+  Plan.hasMany(UserPlan, {
+    foreignKey: "planId",
+    as: "userPlans",
+  });
+  UserPlan.belongsTo(Plan, {
+    foreignKey: "planId",
+    as: "plan",
+  });
+
+  UserPlan.hasMany(TopUp, {
+    foreignKey: "userPlanId",
+    as: "topUps",
+    onDelete: "CASCADE",
+  });
+  TopUp.belongsTo(UserPlan, {
+    foreignKey: "userPlanId",
+    as: "userPlan",
+  });
+
+  User.hasMany(TopUp, {
+    foreignKey: "userId",
+    as: "topUps",
+  });
+  TopUp.belongsTo(User, {
+    foreignKey: "userId",
+    as: "user",
+  });
+
+  Payment.hasOne(TopUp, {
+    foreignKey: "paymentId",
+    as: "topUp",
+  });
+  TopUp.belongsTo(Payment, {
+    foreignKey: "paymentId",
+    as: "payment",
   });
 
   logger.info("Database associations have been set up.");
