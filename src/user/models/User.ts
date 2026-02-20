@@ -36,6 +36,7 @@ export interface UserAttributes {
   otpExpires?: Date;
   passwordResetToken?: string;
   passwordResetTokenExpires?: Date;
+  hasUsedTrial?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -64,6 +65,7 @@ export class User extends Model<UserAttributes> implements UserAttributes {
   public otpExpires?: Date;
   public passwordResetToken?: string;
   public passwordResetTokenExpires?: Date;
+  public hasUsedTrial!: boolean;
   public replicateModels?: {
     id: string;
     version: string;
@@ -194,6 +196,11 @@ User.init(
     passwordResetTokenExpires: {
       type: DataTypes.DATE,
       allowNull: true,
+    },
+    hasUsedTrial: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
   },
   {

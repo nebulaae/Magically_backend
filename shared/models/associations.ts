@@ -1,13 +1,16 @@
-import logger from '../utils/logger';
-import { User } from '../../src/user/models/User';
-import { Gallery } from '../../src/gallery/models/Gallery';
-import { Comment } from '../../src/comment/models/Comment';
-import { Payment } from '../../src/payment/models/Payment';
-import { Subscription } from '../../src/user/models/Subscription';
-import { LikedComment } from '../../src/comment/models/LikedComment';
-import { Publication } from '../../src/publication/models/Publication';
-import { GenerationJob } from '../../src/publication/models/GenerationJob';
-import { LikedPublication } from '../../src/publication/models/LikedPublication';
+import logger from "../utils/logger";
+import { User } from "../../src/user/models/User";
+import { Gallery } from "../../src/gallery/models/Gallery";
+import { Comment } from "../../src/comment/models/Comment";
+import { Payment } from "../../src/payment/models/Payment";
+import { Subscription } from "../../src/user/models/Subscription";
+import { LikedComment } from "../../src/comment/models/LikedComment";
+import { Publication } from "../../src/publication/models/Publication";
+import { GenerationJob } from "../../src/publication/models/GenerationJob";
+import { LikedPublication } from "../../src/publication/models/LikedPublication";
+import { Plan } from "../../src/plans/models/Plan";
+import { UserPlan } from "../../src/plans/models/UserPlan";
+import { TopUp } from "../../src/plans/models/TopUp";
 
 export const setupAssociations = () => {
   // User -> Publication (One-to-Many)
@@ -120,14 +123,61 @@ export const setupAssociations = () => {
 
   // User -> Payment (One-to-Many)
   User.hasMany(Payment, {
-    foreignKey: 'userId',
-    as: 'payments',
-    onDelete: 'CASCADE',
+    foreignKey: "userId",
+    as: "payments",
+    onDelete: "CASCADE",
   });
   Payment.belongsTo(User, {
-    foreignKey: 'userId',
-    as: 'user',
+    foreignKey: "userId",
+    as: "user",
   });
 
-  logger.info('Database associations have been set up.');
+  User.hasMany(UserPlan, {
+    foreignKey: "userId",
+    as: "userPlans",
+    onDelete: "CASCADE",
+  });
+  UserPlan.belongsTo(User, {
+    foreignKey: "userId",
+    as: "user",
+  });
+
+  Plan.hasMany(UserPlan, {
+    foreignKey: "planId",
+    as: "userPlans",
+  });
+  UserPlan.belongsTo(Plan, {
+    foreignKey: "planId",
+    as: "plan",
+  });
+
+  UserPlan.hasMany(TopUp, {
+    foreignKey: "userPlanId",
+    as: "topUps",
+    onDelete: "CASCADE",
+  });
+  TopUp.belongsTo(UserPlan, {
+    foreignKey: "userPlanId",
+    as: "userPlan",
+  });
+
+  User.hasMany(TopUp, {
+    foreignKey: "userId",
+    as: "topUps",
+  });
+  TopUp.belongsTo(User, {
+    foreignKey: "userId",
+    as: "user",
+  });
+
+  Payment.hasOne(TopUp, {
+    foreignKey: "paymentId",
+    as: "topUp",
+  });
+  TopUp.belongsTo(Payment, {
+    foreignKey: "paymentId",
+    as: "payment",
+  });
+
+  logger.info("Database associations have been set up.");
 };
