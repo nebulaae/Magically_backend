@@ -6,6 +6,8 @@ export interface SettingAttributes {
     imageCost: number;
     videoCost: number;
     systemPrompt: string;
+    trialTokens: number;
+    trialPeriodDays: number;
 }
 
 export class Setting extends Model<SettingAttributes> implements SettingAttributes {
@@ -13,6 +15,8 @@ export class Setting extends Model<SettingAttributes> implements SettingAttribut
     public imageCost!: number;
     public videoCost!: number;
     public systemPrompt!: string;
+    public trialTokens!: number;
+    public trialPeriodDays!: number;
 }
 
 Setting.init(
@@ -21,6 +25,8 @@ Setting.init(
         imageCost: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 15 },
         videoCost: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 40 },
         systemPrompt: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+        trialTokens: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 50 },
+        trialPeriodDays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 7 },
     },
     { sequelize: db, modelName: 'Setting', tableName: 'settings', timestamps: false }
 );

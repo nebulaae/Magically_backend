@@ -3,7 +3,7 @@ import { Setting } from '../models/Setting';
 export const getSettings = async () => {
   const [settings] = await Setting.findOrCreate({
     where: { id: 1 },
-    defaults: { imageCost: 15, videoCost: 40, systemPrompt: 'Photorealistic...' }
+    defaults: { imageCost: 15, videoCost: 40, systemPrompt: 'Photorealistic...', trialTokens: 50, trialPeriodDays: 7 }
   });
   return settings;
 };

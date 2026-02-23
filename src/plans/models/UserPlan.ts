@@ -121,20 +121,21 @@ UserPlan.init(
           throw new Error('endDate must be >= startDate');
         }
       },
-      async beforeCreate(plan: UserPlan) {
+      async beforeCreate(plan: UserPlan, options: any) {
         if (ACTIVE_STATUSES.includes(plan.status as (typeof ACTIVE_STATUSES)[number])) {
           const count = await UserPlan.count({
             where: {
               userId: plan.userId,
               status: { [Op.in]: ACTIVE_STATUSES },
             },
+            transaction: options?.transaction,
           });
           if (count > 0) {
             throw new Error('User can have only one active plan at a time');
           }
         }
       },
-      async beforeUpdate(plan: UserPlan) {
+      async beforeUpdate(plan: UserPlan, options: any) {
         if (plan.changed('status') && ACTIVE_STATUSES.includes(plan.status as (typeof ACTIVE_STATUSES)[number])) {
           const count = await UserPlan.count({
             where: {
@@ -142,6 +143,7 @@ UserPlan.init(
               status: { [Op.in]: ACTIVE_STATUSES },
               id: { [Op.ne]: plan.id },
             },
+            transaction: options?.transaction,
           });
           if (count > 0) {
             throw new Error('User can have only one active plan at a time');

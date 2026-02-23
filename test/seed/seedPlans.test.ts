@@ -19,6 +19,7 @@ describe('seedPlans', () => {
   it('creates default plans on first run', async () => {
     await seedPlans();
     const expectedNames = [
+      'Trial',
       'Starter Pack',
       'Monthly Pack',
       'Quarter Pack',
@@ -34,13 +35,13 @@ describe('seedPlans', () => {
     for (const name of expectedNames) {
       expect(planNames.has(name)).toBe(true);
     }
-    const packageNames = expectedNames.slice(0, 3);
-    const subscriptionNames = expectedNames.slice(3, 6);
-    const topupNames = expectedNames.slice(6);
+    const packageNames = expectedNames.slice(0, 4);
+    const subscriptionNames = expectedNames.slice(4, 7);
+    const topupNames = expectedNames.slice(7);
     const packages = allPlans.filter((p) => p.type === 'package' && packageNames.includes(p.name)).length;
     const subscriptions = allPlans.filter((p) => p.type === 'subscription' && subscriptionNames.includes(p.name)).length;
     const topups = allPlans.filter((p) => p.type === 'topup' && topupNames.includes(p.name)).length;
-    expect(packages).toBe(3);
+    expect(packages).toBe(4);
     expect(subscriptions).toBe(3);
     expect(topups).toBe(3);
   });
@@ -56,6 +57,7 @@ describe('seedPlans', () => {
     );
     expect(namesAfter.size).toBeGreaterThanOrEqual(namesBefore.size);
     const expectedNames = [
+      'Trial',
       'Starter Pack',
       'Monthly Pack',
       'Quarter Pack',
@@ -74,6 +76,7 @@ describe('seedPlans', () => {
   it('creates plans with expected names', async () => {
     await seedPlans();
     const expectedNames = [
+      'Trial',
       'Starter Pack',
       'Monthly Pack',
       'Quarter Pack',

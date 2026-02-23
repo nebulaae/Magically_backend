@@ -4,6 +4,12 @@ export const getSettings = () => {
     return settingsRepository.getSettings();
 };
 
-export const updateSettings = (data: { imageCost?: number; videoCost?: number; systemPrompt?: string }) => {
-    return settingsRepository.updateSettings(data);
+export const updateSettings = (data: {
+  imageCost?: number;
+  videoCost?: number;
+  systemPrompt?: string;
+  trialTokens?: number;
+  trialPeriodDays?: number;
+}) => {
+  return settingsRepository.updateSettings(data);
 };

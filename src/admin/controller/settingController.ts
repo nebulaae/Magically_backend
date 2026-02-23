@@ -8,7 +8,13 @@ export const getSettings = async (_req: Request, res: Response) => {
 };
 
 export const updateSettings = async (req: Request, res: Response) => {
-    const { imageCost, videoCost, systemPrompt } = req.body;
-    const updated = await settingsService.updateSettings({ imageCost, videoCost, systemPrompt });
-    apiResponse.success(res, updated, 'Settings updated successfully');
+  const { imageCost, videoCost, systemPrompt, trialTokens, trialPeriodDays } = req.body;
+  const updated = await settingsService.updateSettings({
+    imageCost,
+    videoCost,
+    systemPrompt,
+    trialTokens,
+    trialPeriodDays,
+  });
+  apiResponse.success(res, updated, 'Settings updated successfully');
 };

@@ -4,6 +4,7 @@ import { setupAssociations } from '../models/associations';
 import logger from '../utils/logger';
 
 const DEFAULT_PLANS = [
+  { name: 'Trial', description: 'Trial period', type: 'package' as const, tokenAmount: 50, periodDays: 7, price: 0, currency: 'RUB' },
   { name: 'Starter Pack', description: '7 days', type: 'package' as const, tokenAmount: 100, periodDays: 7, price: 299, currency: 'RUB' },
   { name: 'Monthly Pack', description: '30 days', type: 'package' as const, tokenAmount: 500, periodDays: 30, price: 999, currency: 'RUB' },
   { name: 'Quarter Pack', description: '90 days', type: 'package' as const, tokenAmount: 1500, periodDays: 90, price: 2499, currency: 'RUB' },

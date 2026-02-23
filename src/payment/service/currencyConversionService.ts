@@ -119,6 +119,15 @@ export async function convertToRUB(
   return amount * rate;
 }
 
+export async function convertFromRUB(
+  amountRUB: number,
+  toCurrency: string
+): Promise<number> {
+  const rate = await getExchangeRateToRUB(toCurrency);
+  if (rate === 0) return amountRUB;
+  return amountRUB / rate;
+}
+
 // Рассчитывает количество токенов на основе суммы платежа и валюты
 // PAYMENT_TO_TOKENS_RATE определяет курс: 1 токен = PAYMENT_TO_TOKENS_RATE RUB
 //
