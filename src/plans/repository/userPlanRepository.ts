@@ -64,3 +64,55 @@ export const countActiveByUserId = (userId: string, t?: SequelizeTransaction) =>
     transaction: t,
   });
 };
+
+export const findSubscriptionsToRenew = (now: Date, t?: SequelizeTransaction) => {
+  return UserPlan.findAll({
+    where: {
+      status: 'active',
+      autoRenew: true,
+      endDate: { [Op.lte]: now },
+    },
+    include: [
+      {
+        association: 'plan',
+        required: true,
+        where: { type: 'subscription' },
+      },
+    ],
+    transaction: t,
+  });
+};
+
+export const findOverdueToExpire = (now: Date, t?: SequelizeTransaction) => {
+  return UserPlan.findAll({
+    where: {
+      status: 'overdue',
+      gracePeriodEnd: { [Op.lte]: now },
+    },
+    transaction: t,
+  });
+};
+
+export const findExpiredTrials = (now: Date, t?: SequelizeTransaction) => {
+  return UserPlan.findAll({
+    where: {
+      status: 'trial',
+      endDate: { [Op.lte]: now },
+    },
+    transaction: t,
+  });
+};
+
+export const findExpiredPlans = (now: Date, t?: SequelizeTransaction) => {
+  return UserPlan.findAll({
+    where: {
+      status: { [Op.in]: ['active', 'cancelled'] as UserPlanStatus[] },
+      endDate: { [Op.lte]: now },
+      [Op.or]: [
+        { status: 'cancelled' },
+        { status: 'active', autoRenew: false },
+      ],
+    },
+    transaction: t,
+  });
+};
