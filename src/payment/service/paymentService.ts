@@ -6,6 +6,7 @@ import { performTransaction } from '../../transaction/service/transactionService
 import { calculateTokensFromPayment } from './currencyConversionService';
 import * as userPlanService from '../../plans/service/userPlanService';
 import * as topUpService from '../../plans/service/topUpService';
+import * as subscriptionRenewalService from '../../plans/service/subscriptionRenewalService';
 import db from '../../../shared/config/database';
 import { findPaymentById } from '../repository/paymentRepository';
 
@@ -256,12 +257,31 @@ export const handleBePaidWebhook = async (
         t
       );
 
-      if (
+      const meta = payment!.metadata as {
+        planOperation?: string;
+        planId?: string;
+        userPlanId?: string;
+      } | undefined;
+
+      if (meta?.planOperation === 'subscription_renewal' && meta?.userPlanId) {
+        try {
+          if (status === 'successful') {
+            await subscriptionRenewalService.fulfillRecurringSuccess(meta.userPlanId);
+            logger.info(`Recurring payment fulfilled: payment ${payment!.id}, userPlanId ${meta.userPlanId}`);
+          } else if (status === 'failed' || status === 'expired') {
+            await subscriptionRenewalService.fulfillRecurringFailure(meta.userPlanId);
+            logger.info(`Recurring payment failed, marked overdue: payment ${payment!.id}, userPlanId ${meta.userPlanId}`);
+          }
+        } catch (error: unknown) {
+          logger.error(
+            `Failed to process recurring for payment ${payment!.id}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      } else if (
         status === 'successful' &&
         originalStatus !== 'completed' &&
         originalStatus !== 'refunded'
       ) {
-        const meta = payment!.metadata as { planOperation?: string; planId?: string } | undefined;
         const planOperation = meta?.planOperation;
         const planId = meta?.planId;
         const userId = payment!.userId;

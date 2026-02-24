@@ -80,6 +80,16 @@ export const processGraceExpirations = async (now: Date = new Date()) => {
   }
 };
 
+export const fulfillRecurringSuccess = async (userPlanId: string) => {
+  await renewPeriod(userPlanId, new Date());
+};
+
+export const fulfillRecurringFailure = async (userPlanId: string) => {
+  const settings = (await settingService.getSettings()) as RenewalSettings;
+  const graceDays = settings.subscriptionGracePeriodDays ?? 3;
+  await markOverdue(userPlanId, new Date(), graceDays);
+};
+
 const renewPeriod = async (userPlanId: string, now: Date) => {
   await db.transaction(async (t) => {
     const up = await userPlanRepository.findById(userPlanId, t);
