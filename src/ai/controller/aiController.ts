@@ -3,6 +3,7 @@ import * as aiService from '../service/aiService';
 import * as apiResponse from '../../../shared/utils/apiResponse';
 import { GenerationJob } from '../../publication/models/GenerationJob';
 import { checkUserBalance } from '../../transaction/service/transactionService';
+import { Setting } from '../../admin/models/Setting';
 
 export const createModel = async (req: Request, res: Response) => {
   const { name, description, instruction, provider = 'unifically' } = req.body;
@@ -72,56 +73,65 @@ export const generateImage = async (req: Request, res: Response) => {
     safety_tolerance,
   } = req.body;
   const userId = req.user.id;
-  const isPublish = publish === 'true' || publish === true;
-
-  if (!prompt || !modelId) {
-    return apiResponse.badRequest(res, 'Prompt and Model ID are required.');
-  }
 
   try {
-    // ПРОВЕРЯЕМ БАЛАНС ПЕРЕД ЗАПУСКОМ ГЕНЕРАЦИИ
-    const AI_COST = 15;
-    const hasBalance = await checkUserBalance(userId, AI_COST);
+    // Получаем цены из БД
+    const settings = await Setting.findByPk(1);
+    const cost =
+      quality === '2K' ? settings?.aiCost2K || 20 : settings?.aiCost1K || 15;
 
-    if (!hasBalance) {
-      return apiResponse.badRequest(
-        res,
-        'Insufficient tokens for AI generation (15 tokens required)'
-      );
-    }
+    const hasBalance = await checkUserBalance(userId, cost);
+    if (!hasBalance)
+      return apiResponse.badRequest(res, `Нужно ${cost} кредитов.`);
 
-    // Баланс есть - запускаем генерацию
-    // Токены спишутся в jobPoller после завершения
     const result = await aiService.generateImage(userId, modelId, prompt, {
-      aspect_ratio,
-      width,
-      height,
-      seed,
       quality,
-      safety_tolerance,
+      aspect_ratio: aspect_ratio || '9:16',
     });
 
     const job = await GenerationJob.create({
       userId,
-      service: 'ai' as any,
+      service: 'ai',
       serviceTaskId: result.taskId,
       status: 'pending',
       meta: {
         prompt,
-        publish: isPublish,
         modelId,
         provider: result.provider,
-        aspect_ratio,
-        seed,
+        quality,
+        aspect_ratio: aspect_ratio || '9:16',
+        publish,
       },
     });
 
-    apiResponse.success(
-      res,
-      { jobId: job.id, provider: result.provider },
-      'Generation started.'
-    );
+    apiResponse.success(res, { jobId: job.id });
   } catch (error: any) {
     apiResponse.internalError(res, error.message);
   }
+};
+
+// Новый метод для кнопки Retry
+export const retryJob = async (req: Request, res: Response) => {
+  const { jobId } = req.params;
+  const oldJob = await GenerationJob.findByPk(jobId as string);
+  if (!oldJob || oldJob.userId !== req.user.id)
+    return apiResponse.notFound(res);
+
+  // Просто перезапускаем генерацию с теми же параметрами
+  const result = await aiService.generateImage(
+    oldJob.userId,
+    oldJob.meta.modelId,
+    oldJob.meta.prompt,
+    {
+      quality: oldJob.meta.quality,
+      aspect_ratio: oldJob.meta.aspect_ratio,
+    }
+  );
+
+  oldJob.serviceTaskId = result.taskId;
+  oldJob.status = 'pending';
+  oldJob.meta = { ...oldJob.meta, provider: result.provider, retried: false };
+  await oldJob.save();
+
+  apiResponse.success(res, { jobId: oldJob.id }, 'Job restarted');
 };

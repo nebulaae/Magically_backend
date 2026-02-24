@@ -66,7 +66,10 @@ export const deductTokensForGeneration = async (
   type: 'image' | 'video', // Убрали 'training'
   t: Transaction
 ) => {
-  const settings = await Setting.findByPk(1) || { imageCost: 15, videoCost: 40 };
+  const settings = (await Setting.findByPk(1)) || {
+    imageCost: 15,
+    videoCost: 40,
+  };
 
   let cost = 0;
   let desc = '';

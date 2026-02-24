@@ -73,29 +73,65 @@ const pollJobs = async (io: SocketIOServer) => {
 
       if (job.service === 'ai') {
         const provider = job.meta.provider || 'unifically';
-        const res = await aiService.checkStatus(job.serviceTaskId, provider);
-        statusData = res;
+        const statusData = await aiService.checkStatus(
+          job.serviceTaskId,
+          provider
+        );
+
+        let isFailed = false;
+        let errorMsg = '';
 
         if (provider === 'unifically') {
-          if (statusData?.status === 'completed') {
-            isComplete = true;
-            externalResultUrl =
-              statusData.output?.image_url ||
-              statusData.image_url ||
-              statusData.url;
-          } else if (statusData?.status === 'failed') {
+          if (statusData?.status === 'failed') {
             isFailed = true;
-            errorMessage = statusData.error?.message || 'Unifically failed';
+            errorMsg = statusData.error?.message || 'Unifically failed';
           }
         } else {
-          if (statusData?.status === 'SUCCESS' && statusData?.data?.imageUrl) {
-            isComplete = true;
-            externalResultUrl = statusData.data.imageUrl;
-          } else if (statusData?.status === 'FAILED') {
+          if (statusData?.status === 'FAILED') {
             isFailed = true;
-            errorMessage =
-              statusData.message || statusData.data?.message || 'TTAPI failed';
+            errorMsg = statusData.message || 'TTAPI failed';
           }
+        }
+
+        // ПРОВЕРКА НА ТАЙМАУТ (10 минут)
+        const isTimeout =
+          now - new Date(job.createdAt).getTime() > TEN_MINUTES_MS;
+
+        // ЛОГИКА ПЕРЕКЛЮЧЕНИЯ (ЧЕЙН)
+        if (
+          (isFailed || isTimeout) &&
+          provider === 'unifically' &&
+          !job.meta.retried
+        ) {
+          logger.info(
+            `[JobPoller] Job ${job.id} failed/timeout on Unifically. Switching to TTAPI.`
+          );
+          try {
+            const retry = await aiService.generateImage(
+              job.userId,
+              job.meta.modelId,
+              job.meta.prompt,
+              {
+                quality: job.meta.quality || '1K',
+                aspect_ratio: job.meta.aspect_ratio || '9:16',
+              },
+              'ttapi'
+            );
+
+            job.serviceTaskId = retry.taskId;
+            job.meta = { ...job.meta, provider: 'ttapi', retried: true };
+            job.status = 'processing'; // Сбрасываем в обработку
+            await job.save();
+            continue;
+          } catch (e) {
+            isFailed = true; // Если даже переключиться не удалось
+          }
+        }
+
+        if (isFailed || (isTimeout && job.meta.retried)) {
+          job.status = 'failed';
+          job.errorMessage = errorMsg || 'Job timed out after retries';
+          await job.save();
         }
       } else if (job.service.startsWith('gpt')) {
         const res = await getGptImageStatus(
