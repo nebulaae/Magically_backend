@@ -4,6 +4,8 @@ import { Payment } from '../models/Payment';
 import * as bePaidService from './bePaidService';
 import { performTransaction } from '../../transaction/service/transactionService';
 import { calculateTokensFromPayment } from './currencyConversionService';
+import * as userPlanService from '../../plans/service/userPlanService';
+import * as topUpService from '../../plans/service/topUpService';
 import db from '../../../shared/config/database';
 import { findPaymentById } from '../repository/paymentRepository';
 
@@ -254,49 +256,59 @@ export const handleBePaidWebhook = async (
         t
       );
 
-      // Если платеж успешен и еще не был обработан, начисляем токены
-      // Проверяем исходный статус, чтобы избежать повторного начисления при повторных webhook
       if (
         status === 'successful' &&
         originalStatus !== 'completed' &&
         originalStatus !== 'refunded'
       ) {
-        logger.info(
-          `Payment ${payment!.id} is eligible for token credit: status changed from ${originalStatus} to ${paymentStatus}`
-        );
+        const meta = payment!.metadata as { planOperation?: string; planId?: string } | undefined;
+        const planOperation = meta?.planOperation;
+        const planId = meta?.planId;
+        const userId = payment!.userId;
 
-        try {
-          // Рассчитываем количество токенов с учетом валюты платежа
-          // PAYMENT_TO_TOKENS_RATE определяет курс: 1 токен = PAYMENT_TO_TOKENS_RATE RUB
-          // Сначала конвертируем сумму в RUB, затем применяем курс токенов
-          const finalTokens = await calculateTokensFromPayment(
-            amount,
-            currency
-          );
-
-          logger.info(
-            `Calculating tokens: ${amount} ${currency} -> ${finalTokens} tokens (rate: ${process.env.PAYMENT_TO_TOKENS_RATE || 1} RUB per token)`
-          );
-
-          // Начисляем токены через Transaction Module
-          await performTransaction(
-            payment!.userId,
-            finalTokens,
-            'credit',
-            `Payment completed: ${amount} ${currency} (Transaction: ${transactionUid})`,
-            t
-          );
-
-          logger.info(
-            `Tokens credited: ${finalTokens} tokens for user ${payment!.userId} (payment ${payment!.id})`
-          );
-        } catch (error: any) {
-          logger.error(
-            `Failed to credit tokens for payment ${payment!.id}: ${error.message}`
-          );
-          // Не прерываем транзакцию, но логируем ошибку
-          // Статус платежа будет обновлен, но токены не будут начислены
-          // При следующем webhook попытка начисления повторится, если статус еще не "completed"
+        if (planOperation && planId) {
+          try {
+            if (planOperation === 'package') {
+              await userPlanService.purchasePackage(userId, planId);
+              logger.info(`Plan package fulfilled: payment ${payment!.id}, planId ${planId}`);
+            } else if (planOperation === 'subscription') {
+              await userPlanService.subscribe(userId, planId);
+              logger.info(`Plan subscription fulfilled: payment ${payment!.id}, planId ${planId}`);
+            } else if (planOperation === 'upgrade') {
+              await userPlanService.upgrade(userId, planId);
+              logger.info(`Plan upgrade fulfilled: payment ${payment!.id}, planId ${planId}`);
+            } else if (planOperation === 'topup') {
+              await topUpService.purchaseTopUp(userId, planId, payment!.id);
+              logger.info(`Plan top-up fulfilled: payment ${payment!.id}, planId ${planId}`);
+            } else {
+              throw new Error(`Unknown planOperation: ${planOperation}`);
+            }
+          } catch (error: unknown) {
+            logger.error(
+              `Failed to fulfill plan for payment ${payment!.id}: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+        } else {
+          try {
+            const finalTokens = await calculateTokensFromPayment(amount, currency);
+            logger.info(
+              `Calculating tokens: ${amount} ${currency} -> ${finalTokens} tokens (rate: ${process.env.PAYMENT_TO_TOKENS_RATE || 1} RUB per token)`
+            );
+            await performTransaction(
+              userId,
+              finalTokens,
+              'credit',
+              `Payment completed: ${amount} ${currency} (Transaction: ${transactionUid})`,
+              t
+            );
+            logger.info(
+              `Tokens credited: ${finalTokens} tokens for user ${userId} (payment ${payment!.id})`
+            );
+          } catch (error: unknown) {
+            logger.error(
+              `Failed to credit tokens for payment ${payment!.id}: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
         }
       } else {
         logger.info(
@@ -316,11 +328,12 @@ export const handleBePaidWebhook = async (
       payment: result,
       message: 'Webhook processed successfully',
     };
-  } catch (error: any) {
-    logger.error(`Error processing BePaid webhook: ${error.message}`);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(`Error processing BePaid webhook: ${msg}`);
     return {
       success: false,
-      message: `Error processing webhook: ${error.message}`,
+      message: `Error processing webhook: ${msg}`,
     };
   }
 };
