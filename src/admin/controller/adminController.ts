@@ -118,3 +118,30 @@ export const getAnalytics = async (_req: Request, res: Response) => {
   const data = await adminService.getFullAnalytics();
   apiResponse.success(res, data);
 };
+
+export const getTariffStatistics = async (req: Request, res: Response) => {
+  const fromRaw = Array.isArray(req.query.from) ? req.query.from[0] : req.query.from;
+  const toRaw = Array.isArray(req.query.to) ? req.query.to[0] : req.query.to;
+
+  let from: Date | undefined;
+  let to: Date | undefined;
+
+  if (fromRaw) {
+    const d = new Date(fromRaw as string);
+    if (isNaN(d.getTime())) {
+      return apiResponse.badRequest(res, 'Invalid from date');
+    }
+    from = d;
+  }
+
+  if (toRaw) {
+    const d = new Date(toRaw as string);
+    if (isNaN(d.getTime())) {
+      return apiResponse.badRequest(res, 'Invalid to date');
+    }
+    to = d;
+  }
+
+  const stats = await adminService.getTariffStatistics(from, to);
+  apiResponse.success(res, stats);
+};

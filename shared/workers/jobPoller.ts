@@ -5,9 +5,10 @@ import { Server as SocketIOServer } from 'socket.io';
 import { getUserSocketId } from '../utils/socketManager';
 import { GenerationJob } from '../../src/publication/models/GenerationJob';
 import {
-  performTransaction,
-  checkUserBalance,
+  canSpendTokens,
+  spendTokens,
 } from '../../src/transaction/service/transactionService';
+import * as settingService from '../../src/admin/service/settingService';
 
 import * as aiService from '../../src/ai/service/aiService';
 
@@ -207,12 +208,13 @@ const pollJobs = async (io: SocketIOServer) => {
 
           const { publish, prompt } = job.meta;
 
-          // ПОСТОПЛАТА: Определяем стоимость и списываем ПОСЛЕ генерации
+          const settings = await settingService.getSettings();
           const cost =
-            job.service === 'kling' || job.service === 'higgsfield' ? 40 : 15;
+            job.service === 'kling' || job.service === 'higgsfield'
+              ? settings.videoCost
+              : settings.imageCost;
 
-          // ПРОВЕРКА БАЛАНСА ПЕРЕД СПИСАНИЕМ
-          const hasBalance = await checkUserBalance(job.userId, cost);
+          const hasBalance = await canSpendTokens(job.userId, cost);
           if (!hasBalance) {
             await t.rollback();
 
@@ -234,11 +236,9 @@ const pollJobs = async (io: SocketIOServer) => {
             continue;
           }
 
-          // Списываем токены
-          await performTransaction(
+          await spendTokens(
             job.userId,
             cost,
-            'debit',
             `Generation: ${job.service.toUpperCase()}`,
             t
           );

@@ -67,13 +67,14 @@ export const handleBePaidWebhook = async (req: Request, res: Response) => {
         message: result.message,
       });
     }
-  } catch (error: any) {
-    logger.error(`Error handling BePaid webhook: ${error.message}`);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(`Error handling BePaid webhook: ${msg}`);
     // Возвращаем 200, чтобы bePaid не повторял запрос при ошибке парсинга
     // Но логируем ошибку
     return res.status(200).json({
       success: false,
-      message: `Error processing webhook: ${error.message}`,
+      message: `Error processing webhook: ${msg}`,
     });
   }
 };

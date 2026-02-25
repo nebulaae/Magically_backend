@@ -2,8 +2,8 @@ import { Request, Response } from 'express';
 import * as aiService from '../service/aiService';
 import * as apiResponse from '../../../shared/utils/apiResponse';
 import { GenerationJob } from '../../publication/models/GenerationJob';
-import { checkUserBalance } from '../../transaction/service/transactionService';
-import { Setting } from '../../admin/models/Setting';
+import { canSpendTokens } from '../../transaction/service/transactionService';
+import * as settingService from '../../admin/service/settingService';
 
 export const createModel = async (req: Request, res: Response) => {
   const { name, description, instruction, provider = 'unifically' } = req.body;
@@ -75,14 +75,16 @@ export const generateImage = async (req: Request, res: Response) => {
   const userId = req.user.id;
 
   try {
-    // Получаем цены из БД
-    const settings = await Setting.findByPk(1);
-    const cost =
-      quality === '2K' ? settings?.aiCost2K || 20 : settings?.aiCost1K || 15;
+    const settings = await settingService.getSettings();
+    const imageCost = settings.imageCost ?? 15;
+    const hasBalance = await canSpendTokens(userId, imageCost);
 
-    const hasBalance = await checkUserBalance(userId, cost);
-    if (!hasBalance)
-      return apiResponse.badRequest(res, `Нужно ${cost} кредитов.`);
+    if (!hasBalance) {
+      return apiResponse.badRequest(
+        res,
+        `Insufficient tokens for AI generation (${imageCost} tokens required)`
+      );
+    }
 
     const result = await aiService.generateImage(userId, modelId, prompt, {
       quality,

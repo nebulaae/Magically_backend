@@ -8,6 +8,9 @@ export const updateSettings = (data: {
   imageCost?: number;
   videoCost?: number;
   systemPrompt?: string;
+  trialTokens?: number;
+  trialPeriodDays?: number;
+  subscriptionGracePeriodDays?: number;
 }) => {
   return settingsRepository.updateSettings(data);
 };
