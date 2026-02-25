@@ -110,28 +110,35 @@ export const generateImage = async (req: Request, res: Response) => {
   }
 };
 
-// Новый метод для кнопки Retry
 export const retryJob = async (req: Request, res: Response) => {
   const { jobId } = req.params;
   const oldJob = await GenerationJob.findByPk(jobId as string);
-  if (!oldJob || oldJob.userId !== req.user.id)
-    return apiResponse.notFound(res);
 
-  // Просто перезапускаем генерацию с теми же параметрами
-  const result = await aiService.generateImage(
-    oldJob.userId,
-    oldJob.meta.modelId,
-    oldJob.meta.prompt,
-    {
-      quality: oldJob.meta.quality,
-      aspect_ratio: oldJob.meta.aspect_ratio,
-    }
-  );
+  if (!oldJob || oldJob.userId !== req.user.id) {
+    return apiResponse.notFound(res, 'Job not found');
+  }
 
-  oldJob.serviceTaskId = result.taskId;
-  oldJob.status = 'pending';
-  oldJob.meta = { ...oldJob.meta, provider: result.provider, retried: false };
-  await oldJob.save();
+  try {
+    const result = await aiService.generateImage(
+      oldJob.userId,
+      oldJob.meta.modelId,
+      oldJob.meta.prompt,
+      {
+        quality: oldJob.meta.quality || '1K',
+        aspect_ratio: oldJob.meta.aspect_ratio || '9:16',
+      }
+    );
 
-  apiResponse.success(res, { jobId: oldJob.id }, 'Job restarted');
+    // Сбрасываем старый джоб в исходное состояние
+    oldJob.serviceTaskId = result.taskId;
+    oldJob.status = 'pending';
+    oldJob.errorMessage = '';
+    oldJob.createdAt = new Date(); // Сбрасываем отсчет для таймаута
+    oldJob.meta = { ...oldJob.meta, provider: result.provider, retryCount: 0 };
+    await oldJob.save();
+
+    apiResponse.success(res, { jobId: oldJob.id }, 'Job restarted successfully');
+  } catch (error: any) {
+    apiResponse.internalError(res, error.message);
+  }
 };

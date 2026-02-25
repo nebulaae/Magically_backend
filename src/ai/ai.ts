@@ -30,4 +30,11 @@ router.post(
   asyncHandler(aiController.generateImage)
 );
 
+router.post(
+  '/jobs/:jobId/retry',
+  auth,
+  checkActiveGeneration,
+  asyncHandler(aiController.retryJob)
+);
+
 export default router;

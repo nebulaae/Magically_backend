@@ -5,15 +5,15 @@ export interface GenerationJobAttributes {
   id: string;
   userId: string;
   service:
-    | 'kling'
-    | 'higgsfield'
-    | 'gpt'
-    | 'nano'
-    | 'nano-pro'
-    | 'gpt-1.5'
-    | 'ttapi'
-    | 'flux'
-    | 'ai';
+  | 'kling'
+  | 'higgsfield'
+  | 'gpt'
+  | 'nano'
+  | 'nano-pro'
+  | 'gpt-1.5'
+  | 'ttapi'
+  | 'flux'
+  | 'ai';
   serviceTaskId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   resultUrl?: string;
@@ -33,8 +33,7 @@ export interface GenerationJobAttributes {
 
 export class GenerationJob
   extends Model<GenerationJobAttributes>
-  implements GenerationJobAttributes
-{
+  implements GenerationJobAttributes {
   public id!: string;
   public userId!: string;
   public service!:
@@ -53,8 +52,8 @@ export class GenerationJob
   public errorMessage?: string;
   public isPublished!: boolean;
   public meta!: any;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
+  public createdAt!: Date;
+  public updatedAt!: Date;
 }
 
 GenerationJob.init(
