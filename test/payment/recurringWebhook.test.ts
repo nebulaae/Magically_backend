@@ -20,12 +20,21 @@ const mockPayment = (metadata: Record<string, unknown>) => ({
 describe('Recurring payment webhook', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(db, 'transaction').mockImplementation(((fn: (t: unknown) => Promise<unknown>) => fn({})) as any);
-    (paymentRepository.updatePayment as jest.Mock).mockResolvedValue({ id: 'pay-1', status: 'completed' });
+    jest
+      .spyOn(db, 'transaction')
+      .mockImplementation(((fn: (t: unknown) => Promise<unknown>) =>
+        fn({})) as any);
+    (paymentRepository.updatePayment as jest.Mock).mockResolvedValue({
+      id: 'pay-1',
+      status: 'completed',
+    });
   });
 
   it('calls fulfillRecurringSuccess on successful recurring payment', async () => {
-    const payment = mockPayment({ planOperation: 'subscription_renewal', userPlanId: 'up-1' });
+    const payment = mockPayment({
+      planOperation: 'subscription_renewal',
+      userPlanId: 'up-1',
+    });
     (paymentRepository.findPaymentById as jest.Mock).mockResolvedValue(payment);
 
     const webhookData = {
@@ -40,12 +49,19 @@ describe('Recurring payment webhook', () => {
     const result = await paymentService.handleBePaidWebhook(webhookData as any);
 
     expect(result.success).toBe(true);
-    expect(subscriptionRenewalService.fulfillRecurringSuccess).toHaveBeenCalledWith('up-1');
-    expect(subscriptionRenewalService.fulfillRecurringFailure).not.toHaveBeenCalled();
+    expect(
+      subscriptionRenewalService.fulfillRecurringSuccess
+    ).toHaveBeenCalledWith('up-1');
+    expect(
+      subscriptionRenewalService.fulfillRecurringFailure
+    ).not.toHaveBeenCalled();
   });
 
   it('calls fulfillRecurringFailure on failed recurring payment', async () => {
-    const payment = mockPayment({ planOperation: 'subscription_renewal', userPlanId: 'up-2' });
+    const payment = mockPayment({
+      planOperation: 'subscription_renewal',
+      userPlanId: 'up-2',
+    });
     (paymentRepository.findPaymentById as jest.Mock).mockResolvedValue(payment);
 
     const webhookData = {
@@ -60,12 +76,19 @@ describe('Recurring payment webhook', () => {
     const result = await paymentService.handleBePaidWebhook(webhookData as any);
 
     expect(result.success).toBe(true);
-    expect(subscriptionRenewalService.fulfillRecurringFailure).toHaveBeenCalledWith('up-2');
-    expect(subscriptionRenewalService.fulfillRecurringSuccess).not.toHaveBeenCalled();
+    expect(
+      subscriptionRenewalService.fulfillRecurringFailure
+    ).toHaveBeenCalledWith('up-2');
+    expect(
+      subscriptionRenewalService.fulfillRecurringSuccess
+    ).not.toHaveBeenCalled();
   });
 
   it('calls fulfillRecurringFailure on expired recurring payment', async () => {
-    const payment = mockPayment({ planOperation: 'subscription_renewal', userPlanId: 'up-3' });
+    const payment = mockPayment({
+      planOperation: 'subscription_renewal',
+      userPlanId: 'up-3',
+    });
     (paymentRepository.findPaymentById as jest.Mock).mockResolvedValue(payment);
 
     const webhookData = {
@@ -80,7 +103,11 @@ describe('Recurring payment webhook', () => {
     const result = await paymentService.handleBePaidWebhook(webhookData as any);
 
     expect(result.success).toBe(true);
-    expect(subscriptionRenewalService.fulfillRecurringFailure).toHaveBeenCalledWith('up-3');
-    expect(subscriptionRenewalService.fulfillRecurringSuccess).not.toHaveBeenCalled();
+    expect(
+      subscriptionRenewalService.fulfillRecurringFailure
+    ).toHaveBeenCalledWith('up-3');
+    expect(
+      subscriptionRenewalService.fulfillRecurringSuccess
+    ).not.toHaveBeenCalled();
   });
 });

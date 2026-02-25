@@ -54,7 +54,8 @@ const pollJobs = async (io: SocketIOServer) => {
       let errorMessage: string | undefined;
       let statusData;
 
-      const isTimeout = now - new Date(job.createdAt).getTime() > TEN_MINUTES_MS;
+      const isTimeout =
+        now - new Date(job.createdAt).getTime() > TEN_MINUTES_MS;
 
       if (job.service === 'ai') {
         const provider = job.meta.provider || 'unifically';
@@ -66,11 +67,19 @@ const pollJobs = async (io: SocketIOServer) => {
           const uniStatus = statusData?.status;
           const uniUrl = statusData?.output?.image_url || statusData?.url;
 
-          if ((uniStatus === 'completed' || uniStatus === 'succeeded' || uniStatus === 'ready') && uniUrl) {
+          if (
+            (uniStatus === 'completed' ||
+              uniStatus === 'succeeded' ||
+              uniStatus === 'ready') &&
+            uniUrl
+          ) {
             isComplete = true;
             externalResultUrl = uniUrl;
           } else if (uniStatus === 'failed' || uniStatus === 'error') {
-            errorMessage = statusData?.error?.message || statusData?.message || 'Unifically failed';
+            errorMessage =
+              statusData?.error?.message ||
+              statusData?.message ||
+              'Unifically failed';
           }
         } else {
           // TTAPI: ищем SUCCESS и наличие imageUrl в data
@@ -92,8 +101,11 @@ const pollJobs = async (io: SocketIOServer) => {
         if (errorMessage && !isComplete) {
           const retryCount = job.meta.retryCount || 0;
           if (retryCount < 3) {
-            const nextProvider = provider === 'unifically' ? 'ttapi' : 'unifically';
-            logger.info(`[JobPoller] Attempting fallback for Job ${job.id}. From ${provider} to ${nextProvider}. Retry: ${retryCount + 1}`);
+            const nextProvider =
+              provider === 'unifically' ? 'ttapi' : 'unifically';
+            logger.info(
+              `[JobPoller] Attempting fallback for Job ${job.id}. From ${provider} to ${nextProvider}. Retry: ${retryCount + 1}`
+            );
 
             try {
               const retry = await aiService.generateImage(
@@ -108,7 +120,11 @@ const pollJobs = async (io: SocketIOServer) => {
               );
 
               job.serviceTaskId = retry.taskId;
-              job.meta = { ...job.meta, provider: nextProvider, retryCount: retryCount + 1 };
+              job.meta = {
+                ...job.meta,
+                provider: nextProvider,
+                retryCount: retryCount + 1,
+              };
               job.status = 'processing';
               job.errorMessage = ''; // Очищаем старую ошибку для новой попытки
               job.createdAt = new Date(); // СБРОС ТАЙМЕРА для новой попытки
@@ -204,7 +220,7 @@ const pollJobs = async (io: SocketIOServer) => {
           let cost = 15; // дефолт
 
           if (job.service === 'ai') {
-            // Если 2K - берем aiCost2K, если нет - aiCost1K. 
+            // Если 2K - берем aiCost2K, если нет - aiCost1K.
             // Если в базе пусто - используем твои дефолты 20 и 15
             if (job.meta.quality === '2K') {
               cost = settings?.aiCost2K || 20;

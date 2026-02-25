@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import * as adminService from '../service/adminService';
 import * as apiResponse from '../../../shared/utils/apiResponse';
 import logger from '../../../shared/utils/logger';
+import { Publication } from '../../publication/models/Publication';
+import { User } from '../../user/models/User';
 
 export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body;
@@ -75,20 +77,49 @@ export const deletePublication = async (req: Request, res: Response) => {
   apiResponse.success(res, null, 'Publication was deleted successfully');
 };
 
-export const setPhotoOfTheDay = async (req: Request, res: Response) => {
-  const { publicationId } = req.params;
-  try {
-    const success = await adminService.setPhotoOfTheDay(
-      Array.isArray(publicationId) ? publicationId[0] : publicationId
-    );
-    if (!success) {
-      return apiResponse.notFound(res, 'Publication not found');
-    }
-    apiResponse.success(res, null, 'Photo of the day was set successfully');
-  } catch (error) {
-    logger.error(`Set Photo of the Day error: ${error.message}`);
-    apiResponse.internalError(res, 'Error while setting Photo of the Day.');
-  }
+// Модерация всех публикаций
+export const listAllPublications = async (req: Request, res: Response) => {
+  const { page = '1', limit = '20' } = req.query;
+  const offset = (Number(page) - 1) * Number(limit);
+  const publications = await Publication.findAndCountAll({
+    where: { isTrend: false }, // Обычные юзерские посты
+    include: [{ model: User, as: 'author', attributes: ['id', 'username'] }],
+    order: [['createdAt', 'DESC']],
+    limit: Number(limit),
+    offset,
+  });
+  apiResponse.success(res, publications);
+};
+
+// CRUD Трендов
+export const listTrends = async (req: Request, res: Response) => {
+  const trends = await Publication.findAll({
+    where: { isTrend: true },
+    order: [['createdAt', 'DESC']],
+  });
+  apiResponse.success(res, trends);
+};
+
+export const createTrend = async (req: Request, res: Response) => {
+  const { content, coverText, trendingImageSet, trendingCover } = req.body; // В идеале тут multer для файлов, но для примера берем из body
+  const trend = await Publication.create({
+    content,
+    coverText,
+    trendingCover,
+    trendingImageSet,
+    isTrend: true,
+    adminId: req.user.id,
+    userId: req.user.id, // Временно, если БД требует userId (лучше сделать allowNull: true в БД)
+  });
+  apiResponse.success(res, trend, 'Trend created');
+};
+
+export const updateTrend = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const trend = await Publication.findByPk(Array.isArray(id) ? id[0] : id);
+  if (!trend) return apiResponse.notFound(res, 'Trend not found');
+  await trend.update(req.body);
+  apiResponse.success(res, trend, 'Trend updated');
 };
 
 export const giveTokens = async (req: Request, res: Response) => {
@@ -120,7 +151,9 @@ export const getAnalytics = async (_req: Request, res: Response) => {
 };
 
 export const getTariffStatistics = async (req: Request, res: Response) => {
-  const fromRaw = Array.isArray(req.query.from) ? req.query.from[0] : req.query.from;
+  const fromRaw = Array.isArray(req.query.from)
+    ? req.query.from[0]
+    : req.query.from;
   const toRaw = Array.isArray(req.query.to) ? req.query.to[0] : req.query.to;
 
   let from: Date | undefined;

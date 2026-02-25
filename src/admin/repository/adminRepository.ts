@@ -26,26 +26,3 @@ export const findPublicationById = (publicationId: string) => {
 export const deletePublicationById = (publication: Publication) => {
   return publication.destroy();
 };
-
-export const setPublicationAsPhotoOfTheDay = async (publicationId: string) => {
-  const t = await db.transaction();
-  try {
-    // Unset existing photo of the day
-    await Publication.update(
-      { isPhotoOfTheDay: false },
-      { where: { isPhotoOfTheDay: true }, transaction: t }
-    );
-
-    // Set the new one
-    const [updatedCount] = await Publication.update(
-      { isPhotoOfTheDay: true },
-      { where: { id: publicationId }, transaction: t }
-    );
-
-    await t.commit();
-    return updatedCount > 0;
-  } catch (error) {
-    await t.rollback();
-    throw error;
-  }
-};

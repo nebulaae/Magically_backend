@@ -1,7 +1,6 @@
-import bcrypt from 'bcrypt';
 import db from '../config/database';
 import logger from '../utils/logger';
-import { User } from '../../src/user/models/User';
+import { Admin } from '../../src/admin/models/Admin';
 
 export const createAdmin = async () => {
   try {
@@ -9,24 +8,19 @@ export const createAdmin = async () => {
     logger.info('Database connected for seeding.');
 
     const email = 'admin@volshebny.by';
-    const password = 'Volshebny_admin';
+    const password = 'volshebny_admin';
     const username = 'admin';
 
-    const existingAdmin = await User.findOne({ where: { email } });
-    if (existingAdmin) {
-      logger.warn('Admin already exists.');
-    }
+    const existingAdmin = await Admin.findOne({ where: { email } });
 
-    await User.create({
-      email,
-      username,
-      password,
-      fullname: 'Super Admin',
-      role: 'admin',
-      verified: true,
-      tokens: 999999,
-      dailyActions: { count: 0, lastReset: new Date() },
-    });
+    if (!existingAdmin) {
+      await Admin.create({
+        email,
+        username,
+        password,
+        fullname: 'Super Admin',
+      });
+    }
 
     logger.info(`Admin created successfully: ${email}`);
   } catch (error) {

@@ -127,7 +127,11 @@ const renewPeriod = async (userPlanId: string, now: Date) => {
   });
 };
 
-const markOverdue = async (userPlanId: string, now: Date, graceDays: number) => {
+const markOverdue = async (
+  userPlanId: string,
+  now: Date,
+  graceDays: number
+) => {
   const up = await userPlanRepository.findById(userPlanId);
   if (!up) throw new Error('UserPlan not found');
 
@@ -159,4 +163,3 @@ const expireOverdue = async (userPlanId: string) => {
     );
   });
 };
-

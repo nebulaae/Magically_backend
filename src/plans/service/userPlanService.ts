@@ -50,7 +50,9 @@ function toActiveDto(up: UserPlan & { plan?: Plan }): ActiveUserPlanDto {
   };
 }
 
-export async function getActiveUserPlan(userId: string): Promise<ActiveUserPlanDto | null> {
+export async function getActiveUserPlan(
+  userId: string
+): Promise<ActiveUserPlanDto | null> {
   try {
     const up = await userPlanRepository.findActiveByUserId(userId);
     if (!up) return null;
@@ -63,7 +65,9 @@ export async function getActiveUserPlan(userId: string): Promise<ActiveUserPlanD
   }
 }
 
-export async function createTrialForUser(userId: string): Promise<ActiveUserPlanDto> {
+export async function createTrialForUser(
+  userId: string
+): Promise<ActiveUserPlanDto> {
   try {
     const user = await User.findByPk(userId);
     if (!user) throw new Error('User not found');
@@ -106,13 +110,17 @@ export async function createTrialForUser(userId: string): Promise<ActiveUserPlan
   }
 }
 
-export async function purchasePackage(userId: string, planId: string): Promise<ActiveUserPlanDto> {
+export async function purchasePackage(
+  userId: string,
+  planId: string
+): Promise<ActiveUserPlanDto> {
   try {
     const plan = await planRepository.findById(planId);
     if (!plan) throw new Error('Plan not found');
     if (plan.type !== 'package') throw new Error('Plan is not a package');
     if (!plan.isActive) throw new Error('Plan is not active');
-    if (plan.periodDays == null || plan.periodDays <= 0) throw new Error('Invalid plan period');
+    if (plan.periodDays == null || plan.periodDays <= 0)
+      throw new Error('Invalid plan period');
     const startDate = new Date();
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + plan.periodDays);
@@ -142,13 +150,18 @@ export async function purchasePackage(userId: string, planId: string): Promise<A
   }
 }
 
-export async function subscribe(userId: string, planId: string): Promise<ActiveUserPlanDto> {
+export async function subscribe(
+  userId: string,
+  planId: string
+): Promise<ActiveUserPlanDto> {
   try {
     const plan = await planRepository.findById(planId);
     if (!plan) throw new Error('Plan not found');
-    if (plan.type !== 'subscription') throw new Error('Plan is not a subscription');
+    if (plan.type !== 'subscription')
+      throw new Error('Plan is not a subscription');
     if (!plan.isActive) throw new Error('Plan is not active');
-    if (plan.periodDays == null || plan.periodDays <= 0) throw new Error('Invalid plan period');
+    if (plan.periodDays == null || plan.periodDays <= 0)
+      throw new Error('Invalid plan period');
     const startDate = new Date();
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + plan.periodDays);
@@ -178,12 +191,15 @@ export async function subscribe(userId: string, planId: string): Promise<ActiveU
   }
 }
 
-export async function cancelSubscription(userId: string): Promise<ActiveUserPlanDto | null> {
+export async function cancelSubscription(
+  userId: string
+): Promise<ActiveUserPlanDto | null> {
   try {
     const up = await userPlanRepository.findActiveByUserId(userId);
     if (!up) return null;
     const plan = await Plan.findByPk(up.planId);
-    if (!plan || plan.type !== 'subscription') throw new Error('No active subscription found');
+    if (!plan || plan.type !== 'subscription')
+      throw new Error('No active subscription found');
     if (up.status !== 'active' && up.status !== 'overdue') {
       throw new Error('Subscription is not active');
     }
@@ -203,7 +219,10 @@ export async function cancelSubscription(userId: string): Promise<ActiveUserPlan
   }
 }
 
-export async function upgrade(userId: string, newPlanId: string): Promise<ActiveUserPlanDto> {
+export async function upgrade(
+  userId: string,
+  newPlanId: string
+): Promise<ActiveUserPlanDto> {
   try {
     const newPlan = await planRepository.findById(newPlanId);
     if (!newPlan) throw new Error('Plan not found');
@@ -211,7 +230,8 @@ export async function upgrade(userId: string, newPlanId: string): Promise<Active
       throw new Error('Target plan must be package or subscription');
     }
     if (!newPlan.isActive) throw new Error('Plan is not active');
-    if (newPlan.periodDays == null || newPlan.periodDays <= 0) throw new Error('Invalid plan period');
+    if (newPlan.periodDays == null || newPlan.periodDays <= 0)
+      throw new Error('Invalid plan period');
     const startDate = new Date();
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + newPlan.periodDays);
@@ -245,7 +265,9 @@ export async function upgrade(userId: string, newPlanId: string): Promise<Active
   }
 }
 
-export async function getTokenBalance(userId: string): Promise<TokenBalanceDto> {
+export async function getTokenBalance(
+  userId: string
+): Promise<TokenBalanceDto> {
   try {
     const up = await userPlanRepository.findActiveByUserId(userId);
     if (!up) {

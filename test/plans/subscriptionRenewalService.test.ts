@@ -49,7 +49,9 @@ describe('SubscriptionRenewalService', () => {
     });
     userId = user.id;
 
-    let sub = await Plan.findOne({ where: { name: 'Sub', type: 'subscription' } });
+    let sub = await Plan.findOne({
+      where: { name: 'Sub', type: 'subscription' },
+    });
     if (!sub) {
       sub = await Plan.create({
         name: 'Sub',
@@ -133,4 +135,3 @@ describe('SubscriptionRenewalService', () => {
     expect(updated!.gracePeriodEnd).toBeNull();
   });
 });
-

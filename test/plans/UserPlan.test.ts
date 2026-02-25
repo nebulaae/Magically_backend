@@ -36,7 +36,9 @@ describe('UserPlan model', () => {
 
   beforeEach(async () => {
     await UserPlan.destroy({ where: { userId } });
-    const existingPkg = await Plan.findOne({ where: { name: 'Pack', type: 'package' } });
+    const existingPkg = await Plan.findOne({
+      where: { name: 'Pack', type: 'package' },
+    });
     if (existingPkg) {
       planId = existingPkg.id;
     } else {
@@ -50,7 +52,9 @@ describe('UserPlan model', () => {
       });
       planId = pkg.id;
     }
-    const existingSub = await Plan.findOne({ where: { name: 'Sub', type: 'subscription' } });
+    const existingSub = await Plan.findOne({
+      where: { name: 'Sub', type: 'subscription' },
+    });
     if (existingSub) {
       planSubscriptionId = existingSub.id;
     } else {
@@ -165,7 +169,9 @@ describe('UserPlan model', () => {
   });
 
   it('allows update to active when no other active plan', async () => {
-    const firstTrial = await UserPlan.findOne({ where: { status: 'trial', userId } });
+    const firstTrial = await UserPlan.findOne({
+      where: { status: 'trial', userId },
+    });
     if (firstTrial) {
       await firstTrial.update({ status: 'expired' });
     }

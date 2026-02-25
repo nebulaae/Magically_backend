@@ -5,7 +5,9 @@ import { UserPlan } from '../../src/plans/models/UserPlan';
 import * as userPlanService from '../../src/plans/service/userPlanService';
 
 jest.mock('../../src/admin/service/settingService', () => ({
-  getSettings: jest.fn().mockResolvedValue({ trialTokens: 50, trialPeriodDays: 7 }),
+  getSettings: jest
+    .fn()
+    .mockResolvedValue({ trialTokens: 50, trialPeriodDays: 7 }),
 }));
 
 const TEST_EMAIL = 'userplan-service@test.com';
@@ -71,7 +73,9 @@ describe('UserPlanService', () => {
       });
     }
     packagePlanId = pkg.id;
-    let sub = await Plan.findOne({ where: { name: 'Sub', type: 'subscription' } });
+    let sub = await Plan.findOne({
+      where: { name: 'Sub', type: 'subscription' },
+    });
     if (!sub) {
       sub = await Plan.create({
         name: 'Sub',
@@ -122,14 +126,19 @@ describe('UserPlanService', () => {
 
     it('throws when user not found', async () => {
       await expect(
-        userPlanService.createTrialForUser('00000000-0000-0000-0000-000000000000')
+        userPlanService.createTrialForUser(
+          '00000000-0000-0000-0000-000000000000'
+        )
       ).rejects.toThrow('User not found');
     });
   });
 
   describe('purchasePackage', () => {
     it('creates active user plan for package', async () => {
-      const result = await userPlanService.purchasePackage(userId, packagePlanId);
+      const result = await userPlanService.purchasePackage(
+        userId,
+        packagePlanId
+      );
       expect(result).not.toBeNull();
       expect(result.status).toBe('active');
       expect(result.planName).toBe('Pack');
@@ -145,14 +154,20 @@ describe('UserPlanService', () => {
 
     it('throws when plan not found', async () => {
       await expect(
-        userPlanService.purchasePackage(userId, '00000000-0000-0000-0000-000000000000')
+        userPlanService.purchasePackage(
+          userId,
+          '00000000-0000-0000-0000-000000000000'
+        )
       ).rejects.toThrow('Plan not found');
     });
   });
 
   describe('subscribe', () => {
     it('creates active subscription with autoRenew', async () => {
-      const result = await userPlanService.subscribe(userId, subscriptionPlanId);
+      const result = await userPlanService.subscribe(
+        userId,
+        subscriptionPlanId
+      );
       expect(result).not.toBeNull();
       expect(result.status).toBe('active');
       expect(result.planName).toBe('Sub');

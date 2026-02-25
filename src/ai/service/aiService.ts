@@ -191,7 +191,9 @@ const callUnifically = async (
       },
     };
 
-    logger.info(`[Unifically] Request (${selectedImages.length}/${imageUrls.length} images): ${JSON.stringify(payload)}`);
+    logger.info(
+      `[Unifically] Request (${selectedImages.length}/${imageUrls.length} images): ${JSON.stringify(payload)}`
+    );
 
     const response = await axios.post(UNIFICALLY_URL, payload, {
       headers: {
@@ -207,7 +209,8 @@ const callUnifically = async (
     logger.info(`[Unifically] Success with task_id: ${taskId}`);
     return { provider: 'unifically', taskId };
   } catch (error: any) {
-    const errorMsg = error.response?.data?.message || error.response?.data || error.message;
+    const errorMsg =
+      error.response?.data?.message || error.response?.data || error.message;
     logger.error(`[Unifically] Failed: ${JSON.stringify(errorMsg)}`);
     throw error;
   }
@@ -222,7 +225,10 @@ const callTTAPI = async (
     const selectedImages = selectRandomImages(imageUrls, 4); // Строго до 4 фото
     const sysPrompt = await getSystemPrompt();
     const finalPrompt = sysPrompt ? `${sysPrompt}\n${prompt}` : prompt;
-    const { width, height } = getSizeByQuality(options.quality, options.aspect_ratio || '9:16');
+    const { width, height } = getSizeByQuality(
+      options.quality,
+      options.aspect_ratio || '9:16'
+    );
 
     const requestBody: any = {
       prompt: finalPrompt,
@@ -242,15 +248,21 @@ const callTTAPI = async (
       (key) => requestBody[key] === undefined && delete requestBody[key]
     );
 
-    logger.info(`[TTAPI] Request (${selectedImages.length}/${imageUrls.length} images): ${JSON.stringify(requestBody)}`);
+    logger.info(
+      `[TTAPI] Request (${selectedImages.length}/${imageUrls.length} images): ${JSON.stringify(requestBody)}`
+    );
 
-    const response = await axios.post(`${TTAPI_URL}/bfl/v1/flux-2-max`, requestBody, {
-      headers: {
-        'TT-API-KEY': String(TTAPI_KEY),
-        'Content-Type': 'application/json',
-      },
-      timeout: 30000,
-    });
+    const response = await axios.post(
+      `${TTAPI_URL}/bfl/v1/flux-2-max`,
+      requestBody,
+      {
+        headers: {
+          'TT-API-KEY': String(TTAPI_KEY),
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+      }
+    );
 
     const taskId = response.data?.data?.jobId || response.data?.jobId;
     if (!taskId) throw new Error('No jobId from TTAPI');
@@ -258,7 +270,8 @@ const callTTAPI = async (
     logger.info(`[TTAPI] Success with jobId: ${taskId}`);
     return { provider: 'ttapi', taskId };
   } catch (error: any) {
-    const errorMsg = error.response?.data?.message || error.response?.data || error.message;
+    const errorMsg =
+      error.response?.data?.message || error.response?.data || error.message;
     logger.error(`[TTAPI] Failed: ${JSON.stringify(errorMsg)}`);
     throw error;
   }
@@ -282,17 +295,39 @@ export const generateImage = async (
 
   // Явное направление на провайдера при ретрае
   if (forceProvider === 'ttapi') {
-    return await callTTAPI(finalPrompt, imageUrls, { ...options, width, height, aspect_ratio: aspectRatio });
+    return await callTTAPI(finalPrompt, imageUrls, {
+      ...options,
+      width,
+      height,
+      aspect_ratio: aspectRatio,
+    });
   } else if (forceProvider === 'unifically') {
-    return await callUnifically(finalPrompt, imageUrls, { ...options, aspect_ratio: aspectRatio }, 8);
+    return await callUnifically(
+      finalPrompt,
+      imageUrls,
+      { ...options, aspect_ratio: aspectRatio },
+      8
+    );
   }
 
   try {
     logger.info(`[AI Service] Trying Unifically for user ${userId}`);
-    return await callUnifically(finalPrompt, imageUrls, { ...options, aspect_ratio: aspectRatio }, 8);
+    return await callUnifically(
+      finalPrompt,
+      imageUrls,
+      { ...options, aspect_ratio: aspectRatio },
+      8
+    );
   } catch (error) {
-    logger.warn(`[AI Service] Unifically failed immediately, falling back to TTAPI`);
-    return await callTTAPI(finalPrompt, imageUrls, { ...options, width, height, aspect_ratio: aspectRatio });
+    logger.warn(
+      `[AI Service] Unifically failed immediately, falling back to TTAPI`
+    );
+    return await callTTAPI(finalPrompt, imageUrls, {
+      ...options,
+      width,
+      height,
+      aspect_ratio: aspectRatio,
+    });
   }
 };
 
@@ -308,11 +343,18 @@ export const checkStatus = async (
       return response.data?.data || response.data;
     } catch (error: any) {
       const status = error.response?.status;
-      logger.error(`[Unifically] Status check failed: ${error.message} (HTTP ${status})`);
+      logger.error(
+        `[Unifically] Status check failed: ${error.message} (HTTP ${status})`
+      );
 
       // Если таска удалена или провайдер ругается на Bad Request - сразу переключаем чейн
       if (status === 400 || status === 404) {
-        return { status: 'failed', error: { message: `API Error ${status}: Task not found or bad request` } };
+        return {
+          status: 'failed',
+          error: {
+            message: `API Error ${status}: Task not found or bad request`,
+          },
+        };
       }
       return null; // Временный обрыв сети, попробуем на следующем тике
     }
@@ -331,7 +373,9 @@ export const checkStatus = async (
       return response.data;
     } catch (error: any) {
       const status = error.response?.status;
-      logger.error(`[TTAPI] Status check failed: ${error.message} (HTTP ${status})`);
+      logger.error(
+        `[TTAPI] Status check failed: ${error.message} (HTTP ${status})`
+      );
 
       if (status === 400 || status === 404) {
         return { status: 'FAILED', message: `TTAPI Error ${status}` };

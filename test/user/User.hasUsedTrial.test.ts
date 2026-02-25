@@ -13,7 +13,12 @@ beforeAll(async () => {
   await Plan.destroy({ where: {} });
   await User.destroy({
     where: {
-      email: ['trialcheck@test.com', 'trialused@test.com', 'assoc@test.com', 'topupassoc@test.com'],
+      email: [
+        'trialcheck@test.com',
+        'trialused@test.com',
+        'assoc@test.com',
+        'topupassoc@test.com',
+      ],
     },
   });
 });
@@ -92,7 +97,9 @@ describe('Plans associations', () => {
       autoRenew: false,
     });
     const userWithPlans = (await User.findByPk(user.id, {
-      include: [{ association: 'userPlans', include: [{ association: 'plan' }] }],
+      include: [
+        { association: 'userPlans', include: [{ association: 'plan' }] },
+      ],
     })) as UserWithPlans | null;
     expect(userWithPlans!.userPlans).toHaveLength(1);
     expect(userWithPlans!.userPlans![0].plan!.name).toBe('Assoc Plan');

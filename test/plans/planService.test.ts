@@ -124,7 +124,9 @@ describe('PlanService', () => {
     });
 
     it('returns null when not found', async () => {
-      const plan = await planService.getPlanById('00000000-0000-0000-0000-000000000000');
+      const plan = await planService.getPlanById(
+        '00000000-0000-0000-0000-000000000000'
+      );
       expect(plan).toBeNull();
     });
 

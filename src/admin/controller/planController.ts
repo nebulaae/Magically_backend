@@ -24,7 +24,9 @@ const handleErrors = (error: unknown, res: Response) => {
 
 export const listPlans = async (req: Request, res: Response) => {
   try {
-    const type = Array.isArray(req.query.type) ? req.query.type[0] : req.query.type;
+    const type = Array.isArray(req.query.type)
+      ? req.query.type[0]
+      : req.query.type;
     const isActive = Array.isArray(req.query.isActive)
       ? req.query.isActive[0]
       : req.query.isActive;
@@ -44,7 +46,10 @@ export const listPlans = async (req: Request, res: Response) => {
       filter.type = type as PlanType;
     }
     if (isActive !== undefined) {
-      if (typeof isActive !== 'string' || !['true', 'false'].includes(isActive)) {
+      if (
+        typeof isActive !== 'string' ||
+        !['true', 'false'].includes(isActive)
+      ) {
         return apiResponse.badRequest(
           res,
           'isActive must be \"true\" or \"false\"'
@@ -77,20 +82,30 @@ export const createPlan = async (req: Request, res: Response) => {
     if (!name || typeof name !== 'string') {
       return apiResponse.badRequest(res, 'name is required');
     }
-    if (!type || typeof type !== 'string' || !PLAN_TYPES.includes(type as PlanType)) {
+    if (
+      !type ||
+      typeof type !== 'string' ||
+      !PLAN_TYPES.includes(type as PlanType)
+    ) {
       return apiResponse.badRequest(
         res,
         `type must be one of: ${PLAN_TYPES.join(', ')}`
       );
     }
     if (typeof tokenAmount !== 'number' || tokenAmount < 0) {
-      return apiResponse.badRequest(res, 'tokenAmount must be a non-negative number');
+      return apiResponse.badRequest(
+        res,
+        'tokenAmount must be a non-negative number'
+      );
     }
     if (typeof price !== 'number' || price < 0) {
       return apiResponse.badRequest(res, 'price must be a non-negative number');
     }
 
-    if ((type === 'package' || type === 'subscription') && (!periodDays || periodDays <= 0)) {
+    if (
+      (type === 'package' || type === 'subscription') &&
+      (!periodDays || periodDays <= 0)
+    ) {
       return apiResponse.badRequest(
         res,
         'periodDays must be positive for package and subscription'
@@ -171,4 +186,3 @@ export const deactivatePlan = async (req: Request, res: Response) => {
     handleErrors(error, res);
   }
 };
-

@@ -168,8 +168,21 @@ export const swaggerDefinition = {
         tags: ['Plans'],
         summary: 'Список активных тарифов',
         parameters: [
-          { in: 'query', name: 'type', schema: { type: 'string', enum: ['package', 'subscription', 'topup'] }, description: 'Фильтр по типу' },
-          { in: 'query', name: 'currency', schema: { type: 'string', example: 'USD' }, description: 'Валюта для конвертации цен' },
+          {
+            in: 'query',
+            name: 'type',
+            schema: {
+              type: 'string',
+              enum: ['package', 'subscription', 'topup'],
+            },
+            description: 'Фильтр по типу',
+          },
+          {
+            in: 'query',
+            name: 'currency',
+            schema: { type: 'string', example: 'USD' },
+            description: 'Валюта для конвертации цен',
+          },
         ],
         responses: { '200': { description: 'Список тарифов' } },
       },
@@ -185,12 +198,18 @@ export const swaggerDefinition = {
               schema: {
                 type: 'object',
                 required: ['planId'],
-                properties: { planId: { type: 'string', format: 'uuid' }, currency: { type: 'string' } },
+                properties: {
+                  planId: { type: 'string', format: 'uuid' },
+                  currency: { type: 'string' },
+                },
               },
             },
           },
         },
-        responses: { '200': { description: 'Payment created, redirectUrl для оплаты' }, '400': { description: 'Invalid planId or plan type' } },
+        responses: {
+          '200': { description: 'Payment created, redirectUrl для оплаты' },
+          '400': { description: 'Invalid planId or plan type' },
+        },
       },
     },
     '/plans/subscribe': {
@@ -204,12 +223,18 @@ export const swaggerDefinition = {
               schema: {
                 type: 'object',
                 required: ['planId'],
-                properties: { planId: { type: 'string', format: 'uuid' }, currency: { type: 'string' } },
+                properties: {
+                  planId: { type: 'string', format: 'uuid' },
+                  currency: { type: 'string' },
+                },
               },
             },
           },
         },
-        responses: { '200': { description: 'Payment created, redirectUrl' }, '400': { description: 'Invalid planId or plan type' } },
+        responses: {
+          '200': { description: 'Payment created, redirectUrl' },
+          '400': { description: 'Invalid planId or plan type' },
+        },
       },
     },
     '/plans/unsubscribe': {
@@ -217,7 +242,10 @@ export const swaggerDefinition = {
         tags: ['Plans'],
         summary: 'Отмена подписки',
         security: [{ bearerAuth: [] }, { cookieAuth: [] }],
-        responses: { '200': { description: 'Подписка отменена' }, '404': { description: 'No active subscription' } },
+        responses: {
+          '200': { description: 'Подписка отменена' },
+          '404': { description: 'No active subscription' },
+        },
       },
     },
     '/plans/topup': {
@@ -231,12 +259,18 @@ export const swaggerDefinition = {
               schema: {
                 type: 'object',
                 required: ['planId'],
-                properties: { planId: { type: 'string', format: 'uuid' }, currency: { type: 'string' } },
+                properties: {
+                  planId: { type: 'string', format: 'uuid' },
+                  currency: { type: 'string' },
+                },
               },
             },
           },
         },
-        responses: { '200': { description: 'Payment created, redirectUrl' }, '400': { description: 'Invalid planId or active plan required' } },
+        responses: {
+          '200': { description: 'Payment created, redirectUrl' },
+          '400': { description: 'Invalid planId or active plan required' },
+        },
       },
     },
     '/plans/upgrade': {
@@ -250,12 +284,18 @@ export const swaggerDefinition = {
               schema: {
                 type: 'object',
                 required: ['planId'],
-                properties: { planId: { type: 'string', format: 'uuid' }, currency: { type: 'string' } },
+                properties: {
+                  planId: { type: 'string', format: 'uuid' },
+                  currency: { type: 'string' },
+                },
               },
             },
           },
         },
-        responses: { '200': { description: 'Payment created, redirectUrl' }, '400': { description: 'Invalid planId' } },
+        responses: {
+          '200': { description: 'Payment created, redirectUrl' },
+          '400': { description: 'Invalid planId' },
+        },
       },
     },
     '/plans/{id}': {
@@ -263,10 +303,18 @@ export const swaggerDefinition = {
         tags: ['Plans'],
         summary: 'Тариф по ID',
         parameters: [
-          { in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } },
+          {
+            in: 'path',
+            name: 'id',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+          },
           { in: 'query', name: 'currency', schema: { type: 'string' } },
         ],
-        responses: { '200': { description: 'Тариф' }, '404': { description: 'Plan not found' } },
+        responses: {
+          '200': { description: 'Тариф' },
+          '404': { description: 'Plan not found' },
+        },
       },
     },
     // --- AUTH ---
@@ -483,15 +531,41 @@ export const swaggerDefinition = {
                         balance: { type: 'integer' },
                         tokensFromPlan: { type: 'integer' },
                         tokensFromTopup: { type: 'integer' },
-                        status: { type: 'string', enum: ['trial', 'active', 'overdue', 'cancelled', 'expired', 'noplan'] },
-                        startDate: { type: 'string', format: 'date-time', nullable: true },
-                        endDate: { type: 'string', format: 'date-time', nullable: true },
+                        status: {
+                          type: 'string',
+                          enum: [
+                            'trial',
+                            'active',
+                            'overdue',
+                            'cancelled',
+                            'expired',
+                            'noplan',
+                          ],
+                        },
+                        startDate: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                        },
+                        endDate: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                        },
                         planName: { type: 'string', nullable: true },
                         planType: { type: 'string', nullable: true },
                         isTrial: { type: 'boolean' },
                         autoRenew: { type: 'boolean' },
-                        gracePeriodEnd: { type: 'string', format: 'date-time', nullable: true },
-                        cancelledAt: { type: 'string', format: 'date-time', nullable: true },
+                        gracePeriodEnd: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                        },
+                        cancelledAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                        },
                       },
                     },
                   },

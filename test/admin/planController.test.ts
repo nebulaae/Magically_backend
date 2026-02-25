@@ -159,4 +159,3 @@ describe('Admin plan controller', () => {
     expect(mockStatus).toHaveBeenCalledWith(200);
   });
 });
-

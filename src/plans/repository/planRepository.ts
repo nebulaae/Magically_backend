@@ -20,7 +20,10 @@ export const findAll = (
   if (filter.isActive != null) where.isActive = filter.isActive;
   return Plan.findAll({
     where: Object.keys(where).length ? where : undefined,
-    order: [['type', 'ASC'], ['price', 'ASC']],
+    order: [
+      ['type', 'ASC'],
+      ['price', 'ASC'],
+    ],
     transaction: t,
   });
 };
@@ -33,10 +36,7 @@ export const findActiveByType = (type: PlanType, t?: SequelizeTransaction) => {
   });
 };
 
-export const create = (
-  data: Partial<Plan>,
-  t?: SequelizeTransaction
-) => {
+export const create = (data: Partial<Plan>, t?: SequelizeTransaction) => {
   return Plan.create(data as Parameters<typeof Plan.create>[0], {
     transaction: t,
   });

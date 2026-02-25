@@ -89,7 +89,9 @@ Plan.init(
       beforeValidate(plan: Plan) {
         if (plan.type === 'package' || plan.type === 'subscription') {
           if (plan.periodDays == null || plan.periodDays <= 0) {
-            throw new Error('periodDays must be positive for package and subscription');
+            throw new Error(
+              'periodDays must be positive for package and subscription'
+            );
           }
         }
       },

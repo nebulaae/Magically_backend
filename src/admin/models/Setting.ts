@@ -13,7 +13,10 @@ export interface SettingAttributes {
   aiCost2K: number;
 }
 
-export class Setting extends Model<SettingAttributes> implements SettingAttributes {
+export class Setting
+  extends Model<SettingAttributes>
+  implements SettingAttributes
+{
   public id!: number;
   public imageCost!: number;
   public videoCost!: number;
@@ -31,8 +34,16 @@ Setting.init(
     imageCost: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 15 },
     videoCost: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 40 },
     systemPrompt: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
-    trialTokens: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 50 },
-    trialPeriodDays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 7 },
+    trialTokens: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 50,
+    },
+    trialPeriodDays: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 7,
+    },
     subscriptionGracePeriodDays: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -41,5 +52,10 @@ Setting.init(
     aiCost1K: { type: DataTypes.INTEGER, defaultValue: 15 },
     aiCost2K: { type: DataTypes.INTEGER, defaultValue: 20 },
   },
-  { sequelize: db, modelName: 'Setting', tableName: 'settings', timestamps: false }
+  {
+    sequelize: db,
+    modelName: 'Setting',
+    tableName: 'settings',
+    timestamps: false,
+  }
 );

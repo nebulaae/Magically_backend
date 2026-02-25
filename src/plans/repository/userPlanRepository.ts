@@ -2,7 +2,12 @@ import { UserPlan, UserPlanStatus } from '../models/UserPlan';
 import { Transaction as SequelizeTransaction } from 'sequelize';
 import { Op } from 'sequelize';
 
-const ACTIVE_STATUSES: UserPlanStatus[] = ['trial', 'active', 'overdue', 'cancelled'];
+const ACTIVE_STATUSES: UserPlanStatus[] = [
+  'trial',
+  'active',
+  'overdue',
+  'cancelled',
+];
 
 export const findById = (id: string, t?: SequelizeTransaction) => {
   return UserPlan.findByPk(id, {
@@ -17,7 +22,10 @@ export const findByIdWithPlan = (id: string, t?: SequelizeTransaction) => {
   });
 };
 
-export const findActiveByUserId = (userId: string, t?: SequelizeTransaction) => {
+export const findActiveByUserId = (
+  userId: string,
+  t?: SequelizeTransaction
+) => {
   return UserPlan.findOne({
     where: {
       userId,
@@ -38,10 +46,7 @@ export const findAllByUserId = (userId: string, t?: SequelizeTransaction) => {
   });
 };
 
-export const create = (
-  data: Partial<UserPlan>,
-  t?: SequelizeTransaction
-) => {
+export const create = (data: Partial<UserPlan>, t?: SequelizeTransaction) => {
   return UserPlan.create(data as Parameters<typeof UserPlan.create>[0], {
     transaction: t,
   });
@@ -55,7 +60,10 @@ export const update = (
   return userPlan.update(data, { transaction: t });
 };
 
-export const countActiveByUserId = (userId: string, t?: SequelizeTransaction) => {
+export const countActiveByUserId = (
+  userId: string,
+  t?: SequelizeTransaction
+) => {
   return UserPlan.count({
     where: {
       userId,
@@ -65,7 +73,10 @@ export const countActiveByUserId = (userId: string, t?: SequelizeTransaction) =>
   });
 };
 
-export const findSubscriptionsToRenew = (now: Date, t?: SequelizeTransaction) => {
+export const findSubscriptionsToRenew = (
+  now: Date,
+  t?: SequelizeTransaction
+) => {
   return UserPlan.findAll({
     where: {
       status: 'active',

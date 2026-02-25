@@ -74,4 +74,3 @@ describe('Admin tariff settings controller', () => {
     );
   });
 });
-

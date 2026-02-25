@@ -139,7 +139,11 @@ export const retryJob = async (req: Request, res: Response) => {
     oldJob.meta = { ...oldJob.meta, provider: result.provider, retryCount: 0 };
     await oldJob.save();
 
-    apiResponse.success(res, { jobId: oldJob.id }, 'Job restarted successfully');
+    apiResponse.success(
+      res,
+      { jobId: oldJob.id },
+      'Job restarted successfully'
+    );
   } catch (error: any) {
     apiResponse.internalError(res, error.message);
   }

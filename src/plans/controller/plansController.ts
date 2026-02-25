@@ -8,9 +8,16 @@ import * as paymentService from '../../payment/service/paymentService';
 const handleErrors = (error: unknown, res: Response) => {
   const msg = error instanceof Error ? error.message : String(error);
   logger.error(msg);
-  if (msg.includes('not found') || msg.includes('No active')) return apiResponse.notFound(res, msg);
-  if (msg.includes('already') || msg.includes('required')) return apiResponse.badRequest(res, msg);
-  if (msg.includes('not a ') || msg.includes('Invalid') || msg.includes('not active')) return apiResponse.badRequest(res, msg);
+  if (msg.includes('not found') || msg.includes('No active'))
+    return apiResponse.notFound(res, msg);
+  if (msg.includes('already') || msg.includes('required'))
+    return apiResponse.badRequest(res, msg);
+  if (
+    msg.includes('not a ') ||
+    msg.includes('Invalid') ||
+    msg.includes('not active')
+  )
+    return apiResponse.badRequest(res, msg);
   return apiResponse.internalError(res, 'Server error');
 };
 
@@ -18,13 +25,26 @@ const PLAN_TYPES = ['package', 'subscription', 'topup'] as const;
 
 export const getPlans = async (req: Request, res: Response) => {
   try {
-    const type = Array.isArray(req.query.type) ? req.query.type[0] : req.query.type;
-    const currency = Array.isArray(req.query.currency) ? req.query.currency[0] : req.query.currency;
-    if (type !== undefined && (typeof type !== 'string' || !PLAN_TYPES.includes(type as (typeof PLAN_TYPES)[number]))) {
-      return apiResponse.badRequest(res, `type must be one of: ${PLAN_TYPES.join(', ')}`);
+    const type = Array.isArray(req.query.type)
+      ? req.query.type[0]
+      : req.query.type;
+    const currency = Array.isArray(req.query.currency)
+      ? req.query.currency[0]
+      : req.query.currency;
+    if (
+      type !== undefined &&
+      (typeof type !== 'string' ||
+        !PLAN_TYPES.includes(type as (typeof PLAN_TYPES)[number]))
+    ) {
+      return apiResponse.badRequest(
+        res,
+        `type must be one of: ${PLAN_TYPES.join(', ')}`
+      );
     }
     const plans = await planService.getActivePlans(
-      type && typeof type === 'string' ? { type: type as (typeof PLAN_TYPES)[number] } : {},
+      type && typeof type === 'string'
+        ? { type: type as (typeof PLAN_TYPES)[number] }
+        : {},
       typeof currency === 'string' ? currency : undefined
     );
     return apiResponse.success(res, { plans });
@@ -36,9 +56,14 @@ export const getPlans = async (req: Request, res: Response) => {
 export const getPlanById = async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const currency = Array.isArray(req.query.currency) ? req.query.currency[0] : req.query.currency;
+    const currency = Array.isArray(req.query.currency)
+      ? req.query.currency[0]
+      : req.query.currency;
     if (!id) return apiResponse.badRequest(res, 'Plan id required');
-    const plan = await planService.getPlanById(id, typeof currency === 'string' ? currency : undefined);
+    const plan = await planService.getPlanById(
+      id,
+      typeof currency === 'string' ? currency : undefined
+    );
     if (!plan) return apiResponse.notFound(res, 'Plan not found');
     return apiResponse.success(res, plan);
   } catch (error) {
@@ -57,7 +82,10 @@ const createPlanPayment = async (
   const plan = await planService.getPlanById(planId, userCurrency);
   if (!plan) throw new Error('Plan not found');
   if (!plan.isActive) throw new Error('Plan is not active');
-  const amount = plan.priceInUserCurrency != null ? plan.priceInUserCurrency : Number(plan.price);
+  const amount =
+    plan.priceInUserCurrency != null
+      ? plan.priceInUserCurrency
+      : Number(plan.price);
   const currency = plan.userCurrency ?? plan.currency;
   const result = await paymentService.createPaymentWithToken({
     userId,
@@ -68,11 +96,15 @@ const createPlanPayment = async (
     description,
     metadata: { planOperation, planId },
   });
-  return apiResponse.success(res, {
-    paymentId: result.payment.id,
-    redirectUrl: result.redirectUrl,
-    paymentToken: result.paymentToken,
-  }, 'Payment created');
+  return apiResponse.success(
+    res,
+    {
+      paymentId: result.payment.id,
+      redirectUrl: result.redirectUrl,
+      paymentToken: result.paymentToken,
+    },
+    'Payment created'
+  );
 };
 
 export const purchasePackage = async (req: Request, res: Response) => {
@@ -80,11 +112,23 @@ export const purchasePackage = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const planId = req.body?.planId;
     const currency = req.body?.currency;
-    if (!planId || typeof planId !== 'string') return apiResponse.badRequest(res, 'planId is required');
-    const plan = await planService.getPlanById(planId, typeof currency === 'string' ? currency : undefined);
+    if (!planId || typeof planId !== 'string')
+      return apiResponse.badRequest(res, 'planId is required');
+    const plan = await planService.getPlanById(
+      planId,
+      typeof currency === 'string' ? currency : undefined
+    );
     if (!plan) return apiResponse.notFound(res, 'Plan not found');
-    if (plan.type !== 'package') return apiResponse.badRequest(res, 'Plan is not a package');
-    await createPlanPayment(res, userId, planId, 'package', `Package: ${plan.name}`, typeof currency === 'string' ? currency : undefined);
+    if (plan.type !== 'package')
+      return apiResponse.badRequest(res, 'Plan is not a package');
+    await createPlanPayment(
+      res,
+      userId,
+      planId,
+      'package',
+      `Package: ${plan.name}`,
+      typeof currency === 'string' ? currency : undefined
+    );
   } catch (error) {
     handleErrors(error, res);
   }
@@ -95,11 +139,23 @@ export const subscribe = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const planId = req.body?.planId;
     const currency = req.body?.currency;
-    if (!planId || typeof planId !== 'string') return apiResponse.badRequest(res, 'planId is required');
-    const plan = await planService.getPlanById(planId, typeof currency === 'string' ? currency : undefined);
+    if (!planId || typeof planId !== 'string')
+      return apiResponse.badRequest(res, 'planId is required');
+    const plan = await planService.getPlanById(
+      planId,
+      typeof currency === 'string' ? currency : undefined
+    );
     if (!plan) return apiResponse.notFound(res, 'Plan not found');
-    if (plan.type !== 'subscription') return apiResponse.badRequest(res, 'Plan is not a subscription');
-    await createPlanPayment(res, userId, planId, 'subscription', `Subscription: ${plan.name}`, typeof currency === 'string' ? currency : undefined);
+    if (plan.type !== 'subscription')
+      return apiResponse.badRequest(res, 'Plan is not a subscription');
+    await createPlanPayment(
+      res,
+      userId,
+      planId,
+      'subscription',
+      `Subscription: ${plan.name}`,
+      typeof currency === 'string' ? currency : undefined
+    );
   } catch (error) {
     handleErrors(error, res);
   }
@@ -109,7 +165,8 @@ export const unsubscribe = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     const result = await userPlanService.cancelSubscription(userId);
-    if (!result) return apiResponse.notFound(res, 'No active subscription found');
+    if (!result)
+      return apiResponse.notFound(res, 'No active subscription found');
     return apiResponse.success(res, { plan: result }, 'Subscription cancelled');
   } catch (error) {
     handleErrors(error, res);
@@ -121,11 +178,23 @@ export const topup = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const planId = req.body?.planId;
     const currency = req.body?.currency;
-    if (!planId || typeof planId !== 'string') return apiResponse.badRequest(res, 'planId is required');
-    const plan = await planService.getPlanById(planId, typeof currency === 'string' ? currency : undefined);
+    if (!planId || typeof planId !== 'string')
+      return apiResponse.badRequest(res, 'planId is required');
+    const plan = await planService.getPlanById(
+      planId,
+      typeof currency === 'string' ? currency : undefined
+    );
     if (!plan) return apiResponse.notFound(res, 'Plan not found');
-    if (plan.type !== 'topup') return apiResponse.badRequest(res, 'Plan is not a top-up');
-    await createPlanPayment(res, userId, planId, 'topup', `Top-up: ${plan.name}`, typeof currency === 'string' ? currency : undefined);
+    if (plan.type !== 'topup')
+      return apiResponse.badRequest(res, 'Plan is not a top-up');
+    await createPlanPayment(
+      res,
+      userId,
+      planId,
+      'topup',
+      `Top-up: ${plan.name}`,
+      typeof currency === 'string' ? currency : undefined
+    );
   } catch (error) {
     handleErrors(error, res);
   }
@@ -136,11 +205,26 @@ export const upgrade = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const planId = req.body?.planId;
     const currency = req.body?.currency;
-    if (!planId || typeof planId !== 'string') return apiResponse.badRequest(res, 'planId is required');
-    const plan = await planService.getPlanById(planId, typeof currency === 'string' ? currency : undefined);
+    if (!planId || typeof planId !== 'string')
+      return apiResponse.badRequest(res, 'planId is required');
+    const plan = await planService.getPlanById(
+      planId,
+      typeof currency === 'string' ? currency : undefined
+    );
     if (!plan) return apiResponse.notFound(res, 'Plan not found');
-    if (plan.type !== 'package' && plan.type !== 'subscription') return apiResponse.badRequest(res, 'Target plan must be package or subscription');
-    await createPlanPayment(res, userId, planId, 'upgrade', `Upgrade: ${plan.name}`, typeof currency === 'string' ? currency : undefined);
+    if (plan.type !== 'package' && plan.type !== 'subscription')
+      return apiResponse.badRequest(
+        res,
+        'Target plan must be package or subscription'
+      );
+    await createPlanPayment(
+      res,
+      userId,
+      planId,
+      'upgrade',
+      `Upgrade: ${plan.name}`,
+      typeof currency === 'string' ? currency : undefined
+    );
   } catch (error) {
     handleErrors(error, res);
   }

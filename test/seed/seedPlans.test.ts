@@ -38,9 +38,15 @@ describe('seedPlans', () => {
     const packageNames = expectedNames.slice(0, 4);
     const subscriptionNames = expectedNames.slice(4, 7);
     const topupNames = expectedNames.slice(7);
-    const packages = allPlans.filter((p) => p.type === 'package' && packageNames.includes(p.name)).length;
-    const subscriptions = allPlans.filter((p) => p.type === 'subscription' && subscriptionNames.includes(p.name)).length;
-    const topups = allPlans.filter((p) => p.type === 'topup' && topupNames.includes(p.name)).length;
+    const packages = allPlans.filter(
+      (p) => p.type === 'package' && packageNames.includes(p.name)
+    ).length;
+    const subscriptions = allPlans.filter(
+      (p) => p.type === 'subscription' && subscriptionNames.includes(p.name)
+    ).length;
+    const topups = allPlans.filter(
+      (p) => p.type === 'topup' && topupNames.includes(p.name)
+    ).length;
     expect(packages).toBe(4);
     expect(subscriptions).toBe(3);
     expect(topups).toBe(3);
@@ -48,12 +54,12 @@ describe('seedPlans', () => {
 
   it('does not duplicate plans on second run', async () => {
     await seedPlans();
-    const namesBefore = await Plan.findAll({ attributes: ['name'] }).then((rows) =>
-      new Set(rows.map((r) => r.name))
+    const namesBefore = await Plan.findAll({ attributes: ['name'] }).then(
+      (rows) => new Set(rows.map((r) => r.name))
     );
     await seedPlans();
-    const namesAfter = await Plan.findAll({ attributes: ['name'] }).then((rows) =>
-      new Set(rows.map((r) => r.name))
+    const namesAfter = await Plan.findAll({ attributes: ['name'] }).then(
+      (rows) => new Set(rows.map((r) => r.name))
     );
     expect(namesAfter.size).toBeGreaterThanOrEqual(namesBefore.size);
     const expectedNames = [
@@ -87,9 +93,10 @@ describe('seedPlans', () => {
       'Top-up 500',
       'Top-up 1000',
     ];
-    const names = await Plan.findAll({ attributes: ['name'], order: [['name', 'ASC']] }).then((rows) =>
-      rows.map((r) => r.name)
-    );
+    const names = await Plan.findAll({
+      attributes: ['name'],
+      order: [['name', 'ASC']],
+    }).then((rows) => rows.map((r) => r.name));
     for (const name of expectedNames) {
       expect(names).toContain(name);
     }

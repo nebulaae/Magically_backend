@@ -20,7 +20,11 @@ export interface PublicationAttributes {
   category?: string;
   likeCount: number;
   commentCount: number;
-  isPhotoOfTheDay: boolean;
+  trendingCover?: string;
+  trendingImageSet?: string[];
+  coverText?: string;
+  isTrend: boolean;
+  adminId?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -34,11 +38,15 @@ export class Publication
   public userId!: string;
   public content!: string;
   public imageUrl?: string;
-  public videoUrl?: string; // [NEW]
+  public videoUrl?: string;
   public category?: string;
   public likeCount!: number;
   public commentCount!: number;
-  public isPhotoOfTheDay!: boolean;
+  public trendingCover?: string;
+  public trendingImageSet?: string[];
+  public coverText?: string;
+  public isTrend: boolean;
+  public adminId?: string;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -92,10 +100,14 @@ Publication.init(
       allowNull: false,
       defaultValue: 0,
     },
-    isPhotoOfTheDay: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      allowNull: false,
+    isTrend: { type: DataTypes.BOOLEAN, defaultValue: false },
+    trendingCover: { type: DataTypes.STRING, allowNull: true },
+    trendingImageSet: { type: DataTypes.JSONB, allowNull: true },
+    coverText: { type: DataTypes.STRING, allowNull: true },
+    adminId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: 'Admins', key: 'id' },
     },
   },
   {
