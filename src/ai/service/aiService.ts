@@ -295,6 +295,7 @@ export const generateImage = async (
     return await callTTAPI(finalPrompt, imageUrls, { ...options, width, height, aspect_ratio: aspectRatio });
   }
 };
+
 export const checkStatus = async (
   taskId: string,
   provider: 'unifically' | 'ttapi'
@@ -306,8 +307,14 @@ export const checkStatus = async (
       });
       return response.data?.data || response.data;
     } catch (error: any) {
-      logger.error(`[Unifically] Status check failed: ${error.message}`);
-      return null;
+      const status = error.response?.status;
+      logger.error(`[Unifically] Status check failed: ${error.message} (HTTP ${status})`);
+
+      // Если таска удалена или провайдер ругается на Bad Request - сразу переключаем чейн
+      if (status === 400 || status === 404) {
+        return { status: 'failed', error: { message: `API Error ${status}: Task not found or bad request` } };
+      }
+      return null; // Временный обрыв сети, попробуем на следующем тике
     }
   } else {
     try {
@@ -323,7 +330,12 @@ export const checkStatus = async (
       );
       return response.data;
     } catch (error: any) {
-      logger.error(`[TTAPI] Status check failed: ${error.message}`);
+      const status = error.response?.status;
+      logger.error(`[TTAPI] Status check failed: ${error.message} (HTTP ${status})`);
+
+      if (status === 400 || status === 404) {
+        return { status: 'FAILED', message: `TTAPI Error ${status}` };
+      }
       return null;
     }
   }

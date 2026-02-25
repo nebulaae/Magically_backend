@@ -9,6 +9,8 @@ export interface SettingAttributes {
   trialTokens: number;
   trialPeriodDays: number;
   subscriptionGracePeriodDays: number;
+  aiCost1K: number;
+  aiCost2K: number;
 }
 
 export class Setting extends Model<SettingAttributes> implements SettingAttributes {
@@ -19,6 +21,8 @@ export class Setting extends Model<SettingAttributes> implements SettingAttribut
   public trialTokens!: number;
   public trialPeriodDays!: number;
   public subscriptionGracePeriodDays!: number;
+  public aiCost1K!: number;
+  public aiCost2K!: number;
 }
 
 Setting.init(
@@ -34,6 +38,8 @@ Setting.init(
       allowNull: false,
       defaultValue: 3,
     },
+    aiCost1K: { type: DataTypes.INTEGER, defaultValue: 15 },
+    aiCost2K: { type: DataTypes.INTEGER, defaultValue: 20 },
   },
   { sequelize: db, modelName: 'Setting', tableName: 'settings', timestamps: false }
 );
