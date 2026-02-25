@@ -4,7 +4,10 @@ import { User } from '../../src/user/models/User';
 import { Setting } from '../../src/admin/models/Setting';
 import { Comment } from '../../src/comment/models/Comment';
 import { LikedComment } from '../../src/comment/models/LikedComment';
-import { performTransaction } from '../../src/transaction/service/transactionService';
+import {
+  performTransaction,
+  spendTokens,
+} from '../../src/transaction/service/transactionService';
 
 // Manages daily actions and awards tokens atomically.
 export const handleUserAction = async (
@@ -60,17 +63,15 @@ export const handleUserAction = async (
   }
 };
 
-// Deducts tokens for generation actions.
 export const deductTokensForGeneration = async (
   userId: string,
-  type: 'image' | 'video', // Убрали 'training'
+  type: 'image' | 'video',
   t: Transaction
 ) => {
   const settings = (await Setting.findByPk(1)) || {
     imageCost: 15,
     videoCost: 40,
   };
-
   let cost = 0;
   let desc = '';
   switch (type) {
@@ -83,8 +84,7 @@ export const deductTokensForGeneration = async (
       desc = 'Generation: Video';
       break;
   }
-
-  await performTransaction(userId, cost, 'debit', desc, t);
+  await spendTokens(userId, cost, desc, t);
 };
 
 export const fetchReplies = async (comment: Comment, userId: string) => {

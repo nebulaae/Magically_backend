@@ -1,10 +1,14 @@
 import db from '../../../shared/config/database';
+import { Op } from 'sequelize';
 import { User } from '../../user/models/User';
 import { Comment } from '../../comment/models/Comment';
 import { generateToken } from '../../../shared/utils/jwt';
 import { Publication } from '../../publication/models/Publication';
 import { GenerationJob } from '../../publication/models/GenerationJob';
 import { Transaction as TxModel } from '../../transaction/models/Transaction';
+import { Payment } from '../../payment/models/Payment';
+import { Plan } from '../../plans/models/Plan';
+import { UserPlan } from '../../plans/models/UserPlan';
 import { performTransaction } from '../../transaction/service/transactionService';
 import * as adminRepository from '../repository/adminRepository';
 
@@ -179,5 +183,124 @@ export const getFullAnalytics = async () => {
       modelNoGen: segments.modelNoGen,
       churned: segments.churned,
     },
+  };
+};
+
+export const getTariffStatistics = async (from?: Date, to?: Date) => {
+  const paymentWhere: any = { status: 'completed' };
+  if (from || to) {
+    paymentWhere.createdAt = {};
+    if (from) paymentWhere.createdAt[Op.gte] = from;
+    if (to) paymentWhere.createdAt[Op.lte] = to;
+  }
+
+  const payments = await Payment.findAll({ where: paymentWhere });
+
+  let totalRevenue = 0;
+  let totalCheckCount = 0;
+  const revenueByPlan: Record<
+    string,
+    { planId: string; planName?: string; type?: string; revenue: number }
+  > = {};
+  let soldPackages = 0;
+
+  const planIds = new Set<string>();
+
+  for (const p of payments) {
+    const meta = (p.metadata || {}) as {
+      planOperation?: string;
+      planId?: string;
+    };
+    if (!meta.planOperation || !meta.planId) continue;
+
+    const amount = Number(p.amount);
+    if (!Number.isFinite(amount)) continue;
+
+    totalRevenue += amount;
+    totalCheckCount += 1;
+
+    if (!revenueByPlan[meta.planId]) {
+      revenueByPlan[meta.planId] = {
+        planId: meta.planId,
+        revenue: 0,
+      };
+      planIds.add(meta.planId);
+    }
+    revenueByPlan[meta.planId].revenue += amount;
+
+    if (meta.planOperation === 'package') {
+      soldPackages += 1;
+    }
+  }
+
+  if (planIds.size > 0) {
+    const plans = await Plan.findAll({
+      where: { id: Array.from(planIds) },
+    });
+    for (const plan of plans) {
+      const entry = revenueByPlan[plan.id];
+      if (entry) {
+        entry.planName = plan.name;
+        entry.type = plan.type;
+      }
+    }
+  }
+
+  const activeSubscriptions = await UserPlan.count({
+    include: [
+      {
+        model: Plan,
+        required: true,
+        where: { type: 'subscription' },
+      },
+    ],
+    where: {
+      status: { [Op.in]: ['active', 'overdue'] },
+    },
+  });
+
+  const trialUsers = await User.count({ where: { hasUsedTrial: true } });
+  let convertedUsers = 0;
+  if (trialUsers > 0) {
+    const trialUserIds = await User.findAll({
+      where: { hasUsedTrial: true },
+      attributes: ['id'],
+      raw: true,
+    });
+    const ids = trialUserIds.map((u: any) => u.id);
+    if (ids.length > 0) {
+      const converted = await UserPlan.findAll({
+        where: {
+          userId: { [Op.in]: ids },
+          status: { [Op.in]: ['active', 'overdue', 'cancelled', 'expired'] },
+        },
+        attributes: ['userId'],
+        group: ['userId'],
+        raw: true,
+      });
+      convertedUsers = converted.length;
+    }
+  }
+
+  const averageCheck =
+    totalCheckCount > 0 ? totalRevenue / totalCheckCount : 0;
+
+  return {
+    period: {
+      from: from ?? null,
+      to: to ?? null,
+    },
+    activeSubscriptions,
+    soldPackages,
+    revenueByPlan: Object.values(revenueByPlan),
+    trialConversion: {
+      trialUsers,
+      convertedUsers,
+      rate:
+        trialUsers > 0
+          ? convertedUsers / trialUsers
+          : null,
+    },
+    averageCheck,
   };
 };

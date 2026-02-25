@@ -1,9 +1,6 @@
 {
   "compilerOptions": {
-    "types": [
-      "node",
-      "express"
-    ],
+    "types": ["node", "express", "jest"],
     "target": "es2017",
     "module": "commonjs",
     "sourceMap": true,

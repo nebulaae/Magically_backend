@@ -125,6 +125,24 @@ export const swaggerDefinition = {
           data: { nullable: true },
         },
       },
+      Plan: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          name: { type: 'string' },
+          description: { type: 'string', nullable: true },
+          type: { type: 'string', enum: ['package', 'subscription', 'topup'] },
+          tokenAmount: { type: 'integer' },
+          periodDays: { type: 'integer', nullable: true },
+          price: { type: 'number' },
+          currency: { type: 'string' },
+          priceInUserCurrency: { type: 'number', nullable: true },
+          userCurrency: { type: 'string', nullable: true },
+          isActive: { type: 'boolean' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
     },
   },
   security: [{ cookieAuth: [] }, { bearerAuth: [] }],
@@ -141,8 +159,116 @@ export const swaggerDefinition = {
     { name: 'AI - Higgsfield', description: 'Генерация видео (Higgsfield)' },
     { name: 'AI - Replicate', description: 'Тренировка моделей и генерация' },
     { name: 'Admin', description: 'Административная панель' },
+    { name: 'Plans', description: 'Тарифы, подписки, докупка токенов' },
   ],
   paths: {
+    // --- PLANS ---
+    '/plans': {
+      get: {
+        tags: ['Plans'],
+        summary: 'Список активных тарифов',
+        parameters: [
+          { in: 'query', name: 'type', schema: { type: 'string', enum: ['package', 'subscription', 'topup'] }, description: 'Фильтр по типу' },
+          { in: 'query', name: 'currency', schema: { type: 'string', example: 'USD' }, description: 'Валюта для конвертации цен' },
+        ],
+        responses: { '200': { description: 'Список тарифов' } },
+      },
+    },
+    '/plans/purchase': {
+      post: {
+        tags: ['Plans'],
+        summary: 'Покупка пакетного тарифа (создание платежа)',
+        security: [{ bearerAuth: [] }, { cookieAuth: [] }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['planId'],
+                properties: { planId: { type: 'string', format: 'uuid' }, currency: { type: 'string' } },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Payment created, redirectUrl для оплаты' }, '400': { description: 'Invalid planId or plan type' } },
+      },
+    },
+    '/plans/subscribe': {
+      post: {
+        tags: ['Plans'],
+        summary: 'Оформление подписки (создание платежа)',
+        security: [{ bearerAuth: [] }, { cookieAuth: [] }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['planId'],
+                properties: { planId: { type: 'string', format: 'uuid' }, currency: { type: 'string' } },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Payment created, redirectUrl' }, '400': { description: 'Invalid planId or plan type' } },
+      },
+    },
+    '/plans/unsubscribe': {
+      post: {
+        tags: ['Plans'],
+        summary: 'Отмена подписки',
+        security: [{ bearerAuth: [] }, { cookieAuth: [] }],
+        responses: { '200': { description: 'Подписка отменена' }, '404': { description: 'No active subscription' } },
+      },
+    },
+    '/plans/topup': {
+      post: {
+        tags: ['Plans'],
+        summary: 'Докупка токенов (создание платежа)',
+        security: [{ bearerAuth: [] }, { cookieAuth: [] }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['planId'],
+                properties: { planId: { type: 'string', format: 'uuid' }, currency: { type: 'string' } },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Payment created, redirectUrl' }, '400': { description: 'Invalid planId or active plan required' } },
+      },
+    },
+    '/plans/upgrade': {
+      post: {
+        tags: ['Plans'],
+        summary: 'Повышение тарифа (создание платежа)',
+        security: [{ bearerAuth: [] }, { cookieAuth: [] }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['planId'],
+                properties: { planId: { type: 'string', format: 'uuid' }, currency: { type: 'string' } },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Payment created, redirectUrl' }, '400': { description: 'Invalid planId' } },
+      },
+    },
+    '/plans/{id}': {
+      get: {
+        tags: ['Plans'],
+        summary: 'Тариф по ID',
+        parameters: [
+          { in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } },
+          { in: 'query', name: 'currency', schema: { type: 'string' } },
+        ],
+        responses: { '200': { description: 'Тариф' }, '404': { description: 'Plan not found' } },
+      },
+    },
     // --- AUTH ---
     '/auth/register-step-1': {
       post: {
@@ -335,6 +461,45 @@ export const swaggerDefinition = {
           },
         },
         responses: { '200': { description: 'Обновлено' } },
+      },
+    },
+    '/users/me/plan': {
+      get: {
+        tags: ['Users', 'Plans'],
+        summary: 'Текущий тариф пользователя (баланс, статус, даты)',
+        security: [{ bearerAuth: [] }, { cookieAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Текущий план или noplan',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    data: {
+                      type: 'object',
+                      properties: {
+                        hasActivePlan: { type: 'boolean' },
+                        balance: { type: 'integer' },
+                        tokensFromPlan: { type: 'integer' },
+                        tokensFromTopup: { type: 'integer' },
+                        status: { type: 'string', enum: ['trial', 'active', 'overdue', 'cancelled', 'expired', 'noplan'] },
+                        startDate: { type: 'string', format: 'date-time', nullable: true },
+                        endDate: { type: 'string', format: 'date-time', nullable: true },
+                        planName: { type: 'string', nullable: true },
+                        planType: { type: 'string', nullable: true },
+                        isTrial: { type: 'boolean' },
+                        autoRenew: { type: 'boolean' },
+                        gracePeriodEnd: { type: 'string', format: 'date-time', nullable: true },
+                        cancelledAt: { type: 'string', format: 'date-time', nullable: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
     '/users/me/avatar': {

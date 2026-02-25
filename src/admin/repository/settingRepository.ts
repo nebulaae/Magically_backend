@@ -7,6 +7,9 @@ export const getSettings = async () => {
       imageCost: 15,
       videoCost: 40,
       systemPrompt: 'Photorealistic...',
+      trialTokens: 50,
+      trialPeriodDays: 7,
+      subscriptionGracePeriodDays: 3,
     },
   });
   return settings;

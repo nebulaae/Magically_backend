@@ -7,6 +7,7 @@ import {
   sendPasswordResetEmail,
 } from '../../../shared/scripts/email';
 import { User } from '../../user/models/User';
+import * as userPlanService from '../../plans/service/userPlanService';
 
 export const registerStep1 = async (email: string) => {
   const existingUser = await authRepository.findUserByEmail(email);
@@ -81,8 +82,13 @@ export const registerStep3 = async (
     password,
   });
 
+  if (!user.hasUsedTrial) {
+    await userPlanService.createTrialForUser(user.id);
+  }
+
   const token = generateToken(user.id);
-  const { password: _, ...userResponse } = user.get({ plain: true });
+  const refreshed = await authRepository.findUserById(user.id);
+  const { password: _, ...userResponse } = (refreshed ?? user).get({ plain: true });
 
   return { token, user: userResponse };
 };
@@ -150,6 +156,8 @@ export const telegramLogin = async (telegramUser: any) => {
     dailyActions: { count: 0, lastReset: new Date() },
     password: null,
   });
+
+  await userPlanService.createTrialForUser(user.id);
 
   const token = generateToken(user.id);
   const { password: _, ...userResponse } = user.get({ plain: true });
