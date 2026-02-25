@@ -2,6 +2,7 @@ import express from 'express';
 
 import * as adminController from './controller/adminController';
 import * as settingController from './controller/settingController';
+import * as planAdminController from './controller/planController';
 
 import { auth } from '../../shared/middleware/auth';
 import { adminAuth } from '../../shared/middleware/adminAuth';
@@ -35,5 +36,21 @@ router.get('/analytics', asyncHandler(adminController.getAnalytics));
 
 router.get('/settings', asyncHandler(settingController.getSettings));
 router.put('/settings', asyncHandler(settingController.updateSettings));
+router.get(
+  '/settings/tariffs',
+  asyncHandler(settingController.getTariffSettings)
+);
+router.put(
+  '/settings/tariffs',
+  asyncHandler(settingController.updateTariffSettings)
+);
+router.get('/plans', asyncHandler(planAdminController.listPlans));
+router.post('/plans', asyncHandler(planAdminController.createPlan));
+router.put('/plans/:planId', asyncHandler(planAdminController.updatePlan));
+router.delete('/plans/:planId', asyncHandler(planAdminController.deactivatePlan));
+router.get(
+  '/statistics/tariffs',
+  asyncHandler(adminController.getTariffStatistics)
+);
 
 export default router;

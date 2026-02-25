@@ -15,6 +15,9 @@ router.get('/search/users', auth, asyncHandler(userController.searchUsers));
 // Get your own detailed profile
 router.get('/me/profile', auth, asyncHandler(userController.getMe));
 
+// Get your current plan (balance, status, dates)
+router.get('/me/plan', auth, asyncHandler(userController.getMyPlan));
+
 // Get your own followings
 router.get(
   '/me/profile/followers',

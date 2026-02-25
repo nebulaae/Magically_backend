@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import * as userService from '../service/userService';
 import * as userRepository from '../repository/userRepository';
 import * as apiResponse from '../../../shared/utils/apiResponse';
+import * as userPlanService from '../../plans/service/userPlanService';
 import { handleFileUpload } from '../../../shared/middleware/upload';
 
 const handleErrors = (error: Error, res: Response) => {
@@ -41,6 +42,48 @@ export const getMe = async (req: Request, res: Response) => {
     apiResponse.success(res, profile);
   } catch (error) {
     handleErrors(error, res);
+  }
+};
+
+export const getMyPlan = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const plan = await userPlanService.getActiveUserPlan(userId);
+    if (!plan) {
+      return apiResponse.success(res, {
+        hasActivePlan: false,
+        balance: 0,
+        tokensFromPlan: 0,
+        tokensFromTopup: 0,
+        status: 'noplan',
+        startDate: null,
+        endDate: null,
+        planName: null,
+        planType: null,
+        isTrial: false,
+        autoRenew: false,
+        gracePeriodEnd: null,
+        cancelledAt: null,
+      });
+    }
+    const balance = plan.tokensFromPlan + plan.tokensFromTopup;
+    return apiResponse.success(res, {
+      hasActivePlan: true,
+      balance,
+      tokensFromPlan: plan.tokensFromPlan,
+      tokensFromTopup: plan.tokensFromTopup,
+      status: plan.status,
+      startDate: plan.startDate,
+      endDate: plan.endDate,
+      planName: plan.planName,
+      planType: plan.planType,
+      isTrial: plan.status === 'trial',
+      autoRenew: plan.autoRenew,
+      gracePeriodEnd: plan.gracePeriodEnd,
+      cancelledAt: plan.cancelledAt,
+    });
+  } catch (error) {
+    handleErrors(error as Error, res);
   }
 };
 

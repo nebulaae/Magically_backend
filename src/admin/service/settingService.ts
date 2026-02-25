@@ -1,7 +1,7 @@
 import * as settingsRepository from '../repository/settingRepository';
 
 export const getSettings = () => {
-    return settingsRepository.getSettings();
+  return settingsRepository.getSettings();
 };
 
 export const updateSettings = (data: {
@@ -10,6 +10,7 @@ export const updateSettings = (data: {
   systemPrompt?: string;
   trialTokens?: number;
   trialPeriodDays?: number;
+  subscriptionGracePeriodDays?: number;
 }) => {
   return settingsRepository.updateSettings(data);
 };
