@@ -5,6 +5,7 @@ import { convertFromRUB } from '../../payment/service/currencyConversionService'
 
 export interface PlanListFilter {
   type?: PlanType;
+  isActive?: boolean;
 }
 
 export interface PlanCreateInput {
@@ -80,9 +81,8 @@ export async function getActivePlans(
   userCurrency?: string
 ): Promise<PlanDto[]> {
   try {
-    const isActive = true;
     const plans = await planRepository.findAll(
-      { ...filter, isActive },
+      { ...filter, isActive: true },
       undefined
     );
     if (!userCurrency || userCurrency.toUpperCase() === 'RUB') {
@@ -99,6 +99,22 @@ export async function getActivePlans(
   } catch (error) {
     logger.error(
       `PlanService.getActivePlans failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+    throw error;
+  }
+}
+
+export async function getAllPlans(
+  filter: PlanListFilter = {}
+): Promise<PlanDto[]> {
+  try {
+    const plans = await planRepository.findAll(filter, undefined);
+    return plans.map((p) => planToDto(p));
+  } catch (error) {
+    logger.error(
+      `PlanService.getAllPlans failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
     throw error;
   }
