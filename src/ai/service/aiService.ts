@@ -164,26 +164,20 @@ interface GenerationResult {
 
 const selectRandomImages = (
   imageUrls: string[],
-  maxCount: number = 4
+  maxCount: number
 ): string[] => {
-  if (imageUrls.length <= maxCount) {
-    return imageUrls;
-  }
-  const shuffled = [...imageUrls];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
+  const shuffled = [...imageUrls].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, maxCount);
 };
 
 const callUnifically = async (
   prompt: string,
   imageUrls: string[],
-  options: GenerateOptions
+  options: GenerateOptions,
+  maxImages: number
 ): Promise<{ provider: 'unifically'; taskId: string }> => {
   try {
-    const selectedImages = selectRandomImages(imageUrls, 4);
+    const selectedImages = selectRandomImages(imageUrls, maxImages);
     const sysPrompt = await getSystemPrompt();
     const finalPrompt = sysPrompt ? `${sysPrompt}\n${prompt}` : prompt;
 
@@ -304,38 +298,52 @@ export const generateImage = async (
   userId: string,
   modelId: string,
   prompt: string,
-  options: GenerateOptions
-): Promise<GenerationResult> => {
+  options: any,
+  forceProvider?: 'unifically' | 'ttapi'
+): Promise<{ provider: 'unifically' | 'ttapi'; taskId: string }> => {
   const model = await aiRepository.findModelById(modelId);
   if (!model) throw new Error('Model not found');
 
   const imageUrls = model.imagePaths.map((p) => getImageUrl(p));
-  const finalPrompt = model.instruction
-    ? `${model.instruction}. ${prompt}`
-    : prompt;
 
-  const { width, height } = getDimensions(options.quality, options.aspect_ratio);
+  // Логика промпта: системный + инструкция модели + пользовательский
+  const sysPrompt = model.isSystemPromptEnabled ? await getSystemPrompt() : '';
+  const finalPrompt =
+    `${sysPrompt}\n${model.instruction || ''}\n${prompt}`.trim();
 
-  logger.info(
-    `[AI Service] Starting generation for user ${userId} with ${imageUrls.length} images in model`
-  );
+  // Дефолт 9:16 если не указано
+  const aspectRatio = options.aspect_ratio || '9:16';
+  const { width, height } = getDimensions(options.quality, aspectRatio);
+
+  // Если мы уже в ретрае или упал Unifically
+  if (forceProvider === 'ttapi') {
+    return await callTTAPI(finalPrompt, imageUrls, {
+      ...options,
+      width,
+      height,
+      aspect_ratio: aspectRatio,
+    });
+  }
 
   try {
     logger.info(`[AI Service] Trying Unifically for user ${userId}`);
-    return await callUnifically(finalPrompt, imageUrls, options);
-  } catch (unificError) {
-    logger.warn(`[AI Service] Unifically failed, falling back to TTAPI`);
-
-    try {
-      return await callTTAPI(finalPrompt, imageUrls, {
-        ...options,
-        width,
-        height,
-      });
-    } catch (ttapiError) {
-      logger.error(`[AI Service] Both providers failed for user ${userId}`);
-      throw new Error('All generation providers are unavailable');
-    }
+    // В Unifically шлем СТОЛЬКО ФОТО, СКОЛЬКО ЕСТЬ (до лимита провайдера, обычно 8-10, ставим 8)
+    return await callUnifically(
+      finalPrompt,
+      imageUrls,
+      { ...options, aspect_ratio: aspectRatio },
+      8
+    );
+  } catch (error) {
+    logger.warn(
+      `[AI Service] Unifically failed immediately, falling back to TTAPI`
+    );
+    return await callTTAPI(finalPrompt, imageUrls, {
+      ...options,
+      width,
+      height,
+      aspect_ratio: aspectRatio,
+    });
   }
 };
 
@@ -414,8 +422,11 @@ export const processFinalImage = async (
   return { imageUrl: savedUrl };
 };
 
-const getDimensions = (quality: "1K" | "2K" = "1K", aspectRatio: string = "1:1"): { width: number, height: number } => {
-  const baseSize = quality === "2K" ? 2048 : 1024;
+const getDimensions = (
+  quality: '1K' | '2K' = '1K',
+  aspectRatio: string = '1:1'
+): { width: number; height: number } => {
+  const baseSize = quality === '2K' ? 2048 : 1024;
   const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
 
   if (!wRatio || !hRatio || wRatio === hRatio) {
@@ -425,12 +436,12 @@ const getDimensions = (quality: "1K" | "2K" = "1K", aspectRatio: string = "1:1")
   if (wRatio > hRatio) {
     return {
       width: baseSize,
-      height: Math.round((baseSize * (hRatio / wRatio)) / 8) * 8
+      height: Math.round((baseSize * (hRatio / wRatio)) / 8) * 8,
     };
   } else {
     return {
       width: Math.round((baseSize * (wRatio / hRatio)) / 8) * 8,
-      height: baseSize
+      height: baseSize,
     };
   }
 };

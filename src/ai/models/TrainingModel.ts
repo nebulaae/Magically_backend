@@ -11,6 +11,7 @@ export interface TrainingModelAttributes {
   instruction?: string;
   imagePaths: string[];
   provider: ModelProvider; // Провайдер модели
+  isSystemPromptEnabled: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -26,6 +27,7 @@ export class TrainingModel
   public instruction?: string;
   public imagePaths!: string[];
   public provider!: ModelProvider;
+  public isSystemPromptEnabled!: boolean;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -71,6 +73,10 @@ TrainingModel.init(
       type: DataTypes.ENUM('unifically', 'ttapi'),
       allowNull: false,
       defaultValue: 'unifically',
+    },
+    isSystemPromptEnabled: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
   },
   {
