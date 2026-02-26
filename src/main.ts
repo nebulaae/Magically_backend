@@ -46,6 +46,7 @@ const io = new SocketIOServer(server, {
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
   process.env.ADMIN_URL || 'http://localhost:3001',
+  process.env.BACKEND_URL
 ];
 app.use(
   cors({
