@@ -249,7 +249,7 @@ export const getTariffStatistics = async (from?: Date, to?: Date) => {
   const activeSubscriptions = await UserPlan.count({
     include: [
       {
-        model: Plan,
+        association: 'plan',
         required: true,
         where: { type: 'subscription' },
       },
