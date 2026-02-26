@@ -5,7 +5,9 @@ import { UserPlan } from '../../src/plans/models/UserPlan';
 import * as authService from '../../src/auth/service/authService';
 
 jest.mock('../../src/admin/service/settingService', () => ({
-  getSettings: jest.fn().mockResolvedValue({ trialTokens: 50, trialPeriodDays: 7 }),
+  getSettings: jest
+    .fn()
+    .mockResolvedValue({ trialTokens: 50, trialPeriodDays: 7 }),
 }));
 
 const TEST_EMAIL = 'registration-trial@test.com';
@@ -49,7 +51,12 @@ describe('Registration creates trial', () => {
       hasUsedTrial: false,
     });
 
-    await authService.registerStep3(TEST_EMAIL, 'Full Name', 'regtrial', 'newpass');
+    await authService.registerStep3(
+      TEST_EMAIL,
+      'Full Name',
+      'regtrial',
+      'newpass'
+    );
 
     const plan = await UserPlan.findOne({
       where: { userId: user.id },

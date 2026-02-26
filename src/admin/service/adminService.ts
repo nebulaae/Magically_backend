@@ -10,17 +10,18 @@ import { Payment } from '../../payment/models/Payment';
 import { Plan } from '../../plans/models/Plan';
 import { UserPlan } from '../../plans/models/UserPlan';
 import { performTransaction } from '../../transaction/service/transactionService';
+import { Admin } from '../models/Admin';
 import * as adminRepository from '../repository/adminRepository';
 
 export const loginAdmin = async (username: string, password) => {
-  const adminUser = await adminRepository.findAdminByUsername(username);
+  const adminUser = await Admin.findOne({ where: { username } });
 
-  if (!adminUser || !(await adminUser.comparePassword(password))) {
-    return null;
-  }
+  if (!adminUser || !(await adminUser.comparePassword(password))) return null;
 
   const token = generateToken(adminUser.id);
-  return { token, user: adminUser };
+  const { password: _, ...adminData } = adminUser.get({ plain: true });
+
+  return { token, user: adminData };
 };
 
 export const getAllUsers = () => {
@@ -52,10 +53,6 @@ export const deletePublication = async (publicationId: string) => {
   }
   await adminRepository.deletePublicationById(publication);
   return true;
-};
-
-export const setPhotoOfTheDay = (publicationId: string) => {
-  return adminRepository.setPublicationAsPhotoOfTheDay(publicationId);
 };
 
 export const addTokensToUser = async (
@@ -282,8 +279,7 @@ export const getTariffStatistics = async (from?: Date, to?: Date) => {
     }
   }
 
-  const averageCheck =
-    totalCheckCount > 0 ? totalRevenue / totalCheckCount : 0;
+  const averageCheck = totalCheckCount > 0 ? totalRevenue / totalCheckCount : 0;
 
   return {
     period: {
@@ -296,10 +292,7 @@ export const getTariffStatistics = async (from?: Date, to?: Date) => {
     trialConversion: {
       trialUsers,
       convertedUsers,
-      rate:
-        trialUsers > 0
-          ? convertedUsers / trialUsers
-          : null,
+      rate: trialUsers > 0 ? convertedUsers / trialUsers : null,
     },
     averageCheck,
   };

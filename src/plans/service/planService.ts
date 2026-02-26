@@ -212,7 +212,8 @@ export async function updatePlan(
     if (!plan) throw new Error('Plan not found');
     if (data.name != null) {
       const existing = await planRepository.countByName(data.name, id);
-      if (existing > 0) throw new Error(`Plan with name "${data.name}" already exists`);
+      if (existing > 0)
+        throw new Error(`Plan with name "${data.name}" already exists`);
     }
     const updated = await planRepository.update(plan, {
       ...(data.name != null && { name: data.name }),

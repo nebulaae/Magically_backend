@@ -1,10 +1,7 @@
 import { TopUp } from '../models/TopUp';
 import { Transaction as SequelizeTransaction } from 'sequelize';
 
-export const create = (
-  data: Partial<TopUp>,
-  t?: SequelizeTransaction
-) => {
+export const create = (data: Partial<TopUp>, t?: SequelizeTransaction) => {
   return TopUp.create(data as Parameters<typeof TopUp.create>[0], {
     transaction: t,
   });

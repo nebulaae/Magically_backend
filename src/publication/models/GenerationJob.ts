@@ -53,8 +53,8 @@ export class GenerationJob
   public errorMessage?: string;
   public isPublished!: boolean;
   public meta!: any;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
+  public createdAt!: Date;
+  public updatedAt!: Date;
 }
 
 GenerationJob.init(

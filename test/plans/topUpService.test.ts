@@ -202,7 +202,9 @@ describe('TopUpService', () => {
       expect(await topUpService.getTopUpBalance(userId)).toBe(0);
       await topUpService.purchaseTopUp(userId, topUpPlanId);
       const plan = await Plan.findByPk(topUpPlanId);
-      expect(await topUpService.getTopUpBalance(userId)).toBe(plan!.tokenAmount);
+      expect(await topUpService.getTopUpBalance(userId)).toBe(
+        plan!.tokenAmount
+      );
     });
   });
 });

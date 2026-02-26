@@ -27,7 +27,10 @@ export interface UserPlanAttributes {
   updatedAt?: Date;
 }
 
-export class UserPlan extends Model<UserPlanAttributes> implements UserPlanAttributes {
+export class UserPlan
+  extends Model<UserPlanAttributes>
+  implements UserPlanAttributes
+{
   public id!: string;
   public userId!: string;
   public planId!: string;
@@ -122,7 +125,11 @@ UserPlan.init(
         }
       },
       async beforeCreate(plan: UserPlan, options: any) {
-        if (ACTIVE_STATUSES.includes(plan.status as (typeof ACTIVE_STATUSES)[number])) {
+        if (
+          ACTIVE_STATUSES.includes(
+            plan.status as (typeof ACTIVE_STATUSES)[number]
+          )
+        ) {
           const count = await UserPlan.count({
             where: {
               userId: plan.userId,
@@ -136,7 +143,12 @@ UserPlan.init(
         }
       },
       async beforeUpdate(plan: UserPlan, options: any) {
-        if (plan.changed('status') && ACTIVE_STATUSES.includes(plan.status as (typeof ACTIVE_STATUSES)[number])) {
+        if (
+          plan.changed('status') &&
+          ACTIVE_STATUSES.includes(
+            plan.status as (typeof ACTIVE_STATUSES)[number]
+          )
+        ) {
           const count = await UserPlan.count({
             where: {
               userId: plan.userId,

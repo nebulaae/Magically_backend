@@ -28,6 +28,7 @@ import {
   getVideoStatus as getHiggsfieldStatus,
   processFinalVideo as processHiggsfield,
 } from '../../src/higgsfield/service/higgsfieldService';
+import { Setting } from '../../src/admin/models/Setting';
 
 const POLLING_INTERVAL = 3000;
 
@@ -40,7 +41,6 @@ const pollJobs = async (io: SocketIOServer) => {
   const activeJobs = await GenerationJob.findAll({
     where: { status: ['pending', 'processing'] },
   });
-
   if (activeJobs.length === 0) return;
 
   const TEN_MINUTES_MS = 10 * 60 * 1000;
@@ -52,87 +52,94 @@ const pollJobs = async (io: SocketIOServer) => {
       let isFailed = false;
       let externalResultUrl: string | undefined;
       let errorMessage: string | undefined;
-
       let statusData;
 
-      if (now - new Date(job.createdAt).getTime() > TEN_MINUTES_MS) {
-        job.status = 'failed';
-        job.errorMessage = 'Job timed out after 10 minutes';
-        await job.save();
-
-        const userSocketId = getUserSocketId(job.userId);
-        if (userSocketId) {
-          io.to(userSocketId).emit('jobUpdate', {
-            type: 'failed',
-            jobId: job.id,
-            error: job.errorMessage,
-          });
-        }
-        logger.warn(`Job ${job.id} marked as failed due to timeout.`);
-        continue;
-      }
+      const isTimeout =
+        now - new Date(job.createdAt).getTime() > TEN_MINUTES_MS;
 
       if (job.service === 'ai') {
         const provider = job.meta.provider || 'unifically';
-        const statusData = await aiService.checkStatus(
-          job.serviceTaskId,
-          provider
-        );
+        statusData = await aiService.checkStatus(job.serviceTaskId, provider);
 
-        let isFailed = false;
-        let errorMsg = '';
-
+        // 1. Сначала проверяем УСПЕХ (самое важное)
         if (provider === 'unifically') {
-          if (statusData?.status === 'failed') {
-            isFailed = true;
-            errorMsg = statusData.error?.message || 'Unifically failed';
+          // Unifically: ищем в data.status или просто status
+          const uniStatus = statusData?.status;
+          const uniUrl = statusData?.output?.image_url || statusData?.url;
+
+          if (
+            (uniStatus === 'completed' ||
+              uniStatus === 'succeeded' ||
+              uniStatus === 'ready') &&
+            uniUrl
+          ) {
+            isComplete = true;
+            externalResultUrl = uniUrl;
+          } else if (uniStatus === 'failed' || uniStatus === 'error') {
+            errorMessage =
+              statusData?.error?.message ||
+              statusData?.message ||
+              'Unifically failed';
           }
         } else {
-          if (statusData?.status === 'FAILED') {
-            isFailed = true;
-            errorMsg = statusData.message || 'TTAPI failed';
+          // TTAPI: ищем SUCCESS и наличие imageUrl в data
+          // Важно: проверяем и statusData.status и statusData.data.imageUrl
+          if (statusData?.status === 'SUCCESS' && statusData?.data?.imageUrl) {
+            isComplete = true;
+            externalResultUrl = statusData.data.imageUrl;
+          } else if (statusData?.status === 'FAILED') {
+            errorMessage = statusData?.message || 'TTAPI failed';
           }
         }
 
-        // ПРОВЕРКА НА ТАЙМАУТ (10 минут)
-        const isTimeout =
-          now - new Date(job.createdAt).getTime() > TEN_MINUTES_MS;
+        // 2. Если НЕ успех и НЕ явная ошибка, проверяем таймаут 10 минут
+        if (!isComplete && !errorMessage && isTimeout) {
+          errorMessage = 'Job timed out after 10 minutes';
+        }
 
-        // ЛОГИКА ПЕРЕКЛЮЧЕНИЯ (ЧЕЙН)
-        if (
-          (isFailed || isTimeout) &&
-          provider === 'unifically' &&
-          !job.meta.retried
-        ) {
-          logger.info(
-            `[JobPoller] Job ${job.id} failed/timeout on Unifically. Switching to TTAPI.`
-          );
-          try {
-            const retry = await aiService.generateImage(
-              job.userId,
-              job.meta.modelId,
-              job.meta.prompt,
-              {
-                quality: job.meta.quality || '1K',
-                aspect_ratio: job.meta.aspect_ratio || '9:16',
-              },
-              'ttapi'
+        // 3. Логика ПЕРЕКЛЮЧЕНИЯ (Retry/Fallback), если есть ошибка (timeout или ошибка провайдера)
+        if (errorMessage && !isComplete) {
+          const retryCount = job.meta.retryCount || 0;
+          if (retryCount < 3) {
+            const nextProvider =
+              provider === 'unifically' ? 'ttapi' : 'unifically';
+            logger.info(
+              `[JobPoller] Attempting fallback for Job ${job.id}. From ${provider} to ${nextProvider}. Retry: ${retryCount + 1}`
             );
 
-            job.serviceTaskId = retry.taskId;
-            job.meta = { ...job.meta, provider: 'ttapi', retried: true };
-            job.status = 'processing'; // Сбрасываем в обработку
-            await job.save();
-            continue;
-          } catch (e) {
-            isFailed = true; // Если даже переключиться не удалось
-          }
-        }
+            try {
+              const retry = await aiService.generateImage(
+                job.userId,
+                job.meta.modelId,
+                job.meta.prompt,
+                {
+                  quality: job.meta.quality || '1K',
+                  aspect_ratio: job.meta.aspect_ratio || '9:16',
+                },
+                nextProvider
+              );
 
-        if (isFailed || (isTimeout && job.meta.retried)) {
-          job.status = 'failed';
-          job.errorMessage = errorMsg || 'Job timed out after retries';
-          await job.save();
+              job.serviceTaskId = retry.taskId;
+              job.meta = {
+                ...job.meta,
+                provider: nextProvider,
+                retryCount: retryCount + 1,
+              };
+              job.status = 'processing';
+              job.errorMessage = ''; // Очищаем старую ошибку для новой попытки
+              job.createdAt = new Date(); // СБРОС ТАЙМЕРА для новой попытки
+              await job.save();
+              continue; // Идем к следующему джобу, этот обновится на след. тике
+            } catch (e: any) {
+              logger.error(`[JobPoller] Fallback failed: ${e.message}`);
+              // Не убиваем джоб сразу, даем поллеру попробовать еще раз на след. тике
+              job.meta = { ...job.meta, retryCount: retryCount + 1 };
+              await job.save();
+              continue;
+            }
+          } else {
+            isFailed = true; // Окончательный провал после 3 попыток
+          }
         }
       } else if (job.service.startsWith('gpt')) {
         const res = await getGptImageStatus(
@@ -208,12 +215,23 @@ const pollJobs = async (io: SocketIOServer) => {
 
           const { publish, prompt } = job.meta;
 
-          const settings = await settingService.getSettings();
-          const cost =
-            job.service === 'kling' || job.service === 'higgsfield'
-              ? settings.videoCost
-              : settings.imageCost;
+          // Калькуляция стоимости
+          const settings = await Setting.findByPk(1);
+          let cost = 15; // дефолт
 
+          if (job.service === 'ai') {
+            // Если 2K - берем aiCost2K, если нет - aiCost1K.
+            // Если в базе пусто - используем твои дефолты 20 и 15
+            if (job.meta.quality === '2K') {
+              cost = settings?.aiCost2K || 20;
+            } else {
+              cost = settings?.aiCost1K || 15;
+            }
+          } else if (job.service === 'kling' || job.service === 'higgsfield') {
+            cost = settings?.videoCost || 40;
+          } else {
+            cost = settings?.imageCost || 15;
+          }
           const hasBalance = await canSpendTokens(job.userId, cost);
           if (!hasBalance) {
             await t.rollback();

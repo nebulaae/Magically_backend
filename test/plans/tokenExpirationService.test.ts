@@ -76,7 +76,9 @@ describe('TokenExpirationService', () => {
     }
     packagePlanId = pkg.id;
 
-    let sub = await Plan.findOne({ where: { name: 'Sub', type: 'subscription' } });
+    let sub = await Plan.findOne({
+      where: { name: 'Sub', type: 'subscription' },
+    });
     if (!sub) {
       sub = await Plan.create({
         name: 'Sub',

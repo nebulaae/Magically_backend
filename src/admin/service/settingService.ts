@@ -7,6 +7,8 @@ export const getSettings = () => {
 export const updateSettings = (data: {
   imageCost?: number;
   videoCost?: number;
+  aiCost1K?: number;
+  aiCost2K?: number;
   systemPrompt?: string;
   trialTokens?: number;
   trialPeriodDays?: number;

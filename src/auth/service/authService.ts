@@ -88,7 +88,9 @@ export const registerStep3 = async (
 
   const token = generateToken(user.id);
   const refreshed = await authRepository.findUserById(user.id);
-  const { password: _, ...userResponse } = (refreshed ?? user).get({ plain: true });
+  const { password: _, ...userResponse } = (refreshed ?? user).get({
+    plain: true,
+  });
 
   return { token, user: userResponse };
 };

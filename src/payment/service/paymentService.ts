@@ -257,20 +257,30 @@ export const handleBePaidWebhook = async (
         t
       );
 
-      const meta = payment!.metadata as {
-        planOperation?: string;
-        planId?: string;
-        userPlanId?: string;
-      } | undefined;
+      const meta = payment!.metadata as
+        | {
+            planOperation?: string;
+            planId?: string;
+            userPlanId?: string;
+          }
+        | undefined;
 
       if (meta?.planOperation === 'subscription_renewal' && meta?.userPlanId) {
         try {
           if (status === 'successful') {
-            await subscriptionRenewalService.fulfillRecurringSuccess(meta.userPlanId);
-            logger.info(`Recurring payment fulfilled: payment ${payment!.id}, userPlanId ${meta.userPlanId}`);
+            await subscriptionRenewalService.fulfillRecurringSuccess(
+              meta.userPlanId
+            );
+            logger.info(
+              `Recurring payment fulfilled: payment ${payment!.id}, userPlanId ${meta.userPlanId}`
+            );
           } else if (status === 'failed' || status === 'expired') {
-            await subscriptionRenewalService.fulfillRecurringFailure(meta.userPlanId);
-            logger.info(`Recurring payment failed, marked overdue: payment ${payment!.id}, userPlanId ${meta.userPlanId}`);
+            await subscriptionRenewalService.fulfillRecurringFailure(
+              meta.userPlanId
+            );
+            logger.info(
+              `Recurring payment failed, marked overdue: payment ${payment!.id}, userPlanId ${meta.userPlanId}`
+            );
           }
         } catch (error: unknown) {
           logger.error(
@@ -290,16 +300,24 @@ export const handleBePaidWebhook = async (
           try {
             if (planOperation === 'package') {
               await userPlanService.purchasePackage(userId, planId);
-              logger.info(`Plan package fulfilled: payment ${payment!.id}, planId ${planId}`);
+              logger.info(
+                `Plan package fulfilled: payment ${payment!.id}, planId ${planId}`
+              );
             } else if (planOperation === 'subscription') {
               await userPlanService.subscribe(userId, planId);
-              logger.info(`Plan subscription fulfilled: payment ${payment!.id}, planId ${planId}`);
+              logger.info(
+                `Plan subscription fulfilled: payment ${payment!.id}, planId ${planId}`
+              );
             } else if (planOperation === 'upgrade') {
               await userPlanService.upgrade(userId, planId);
-              logger.info(`Plan upgrade fulfilled: payment ${payment!.id}, planId ${planId}`);
+              logger.info(
+                `Plan upgrade fulfilled: payment ${payment!.id}, planId ${planId}`
+              );
             } else if (planOperation === 'topup') {
               await topUpService.purchaseTopUp(userId, planId, payment!.id);
-              logger.info(`Plan top-up fulfilled: payment ${payment!.id}, planId ${planId}`);
+              logger.info(
+                `Plan top-up fulfilled: payment ${payment!.id}, planId ${planId}`
+              );
             } else {
               throw new Error(`Unknown planOperation: ${planOperation}`);
             }
@@ -310,7 +328,10 @@ export const handleBePaidWebhook = async (
           }
         } else {
           try {
-            const finalTokens = await calculateTokensFromPayment(amount, currency);
+            const finalTokens = await calculateTokensFromPayment(
+              amount,
+              currency
+            );
             logger.info(
               `Calculating tokens: ${amount} ${currency} -> ${finalTokens} tokens (rate: ${process.env.PAYMENT_TO_TOKENS_RATE || 1} RUB per token)`
             );

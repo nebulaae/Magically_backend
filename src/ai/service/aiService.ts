@@ -186,7 +186,7 @@ const callUnifically = async (
       input: {
         prompt: finalPrompt,
         image_urls: selectedImages,
-        aspect_ratio: options.aspect_ratio || '1:1',
+        aspect_ratio: options.aspect_ratio || '9:16', // Дефолт 9:16
         resolution: options.quality === '2K' ? '2k' : '1k',
       },
     };
@@ -203,16 +203,8 @@ const callUnifically = async (
       timeout: 30000,
     });
 
-    logger.info(`[Unifically] Response: ${JSON.stringify(response.data)}`);
-
     const taskId = response.data?.data?.task_id;
-
-    if (!taskId) {
-      logger.error(
-        `[Unifically] No task_id in response: ${JSON.stringify(response.data)}`
-      );
-      throw new Error('No task ID from Unifically');
-    }
+    if (!taskId) throw new Error('No task ID from Unifically');
 
     logger.info(`[Unifically] Success with task_id: ${taskId}`);
     return { provider: 'unifically', taskId };
@@ -230,13 +222,12 @@ const callTTAPI = async (
   options: GenerateOptions
 ): Promise<{ provider: 'ttapi'; taskId: string }> => {
   try {
-    const selectedImages = selectRandomImages(imageUrls, 4);
+    const selectedImages = selectRandomImages(imageUrls, 4); // Строго до 4 фото
     const sysPrompt = await getSystemPrompt();
     const finalPrompt = sysPrompt ? `${sysPrompt}\n${prompt}` : prompt;
-
     const { width, height } = getSizeByQuality(
       options.quality,
-      options.aspect_ratio
+      options.aspect_ratio || '9:16'
     );
 
     const requestBody: any = {
@@ -273,16 +264,8 @@ const callTTAPI = async (
       }
     );
 
-    logger.info(`[TTAPI] Response: ${JSON.stringify(response.data)}`);
-
     const taskId = response.data?.data?.jobId || response.data?.jobId;
-
-    if (!taskId) {
-      logger.error(
-        `[TTAPI] No jobId in response: ${JSON.stringify(response.data)}`
-      );
-      throw new Error('No jobId from TTAPI');
-    }
+    if (!taskId) throw new Error('No jobId from TTAPI');
 
     logger.info(`[TTAPI] Success with jobId: ${taskId}`);
     return { provider: 'ttapi', taskId };
@@ -305,17 +288,12 @@ export const generateImage = async (
   if (!model) throw new Error('Model not found');
 
   const imageUrls = model.imagePaths.map((p) => getImageUrl(p));
-
-  // Логика промпта: системный + инструкция модели + пользовательский
   const sysPrompt = model.isSystemPromptEnabled ? await getSystemPrompt() : '';
-  const finalPrompt =
-    `${sysPrompt}\n${model.instruction || ''}\n${prompt}`.trim();
-
-  // Дефолт 9:16 если не указано
+  const finalPrompt = `${sysPrompt}${model.instruction || ''}${prompt}`.trim();
   const aspectRatio = options.aspect_ratio || '9:16';
   const { width, height } = getDimensions(options.quality, aspectRatio);
 
-  // Если мы уже в ретрае или упал Unifically
+  // Явное направление на провайдера при ретрае
   if (forceProvider === 'ttapi') {
     return await callTTAPI(finalPrompt, imageUrls, {
       ...options,
@@ -323,11 +301,17 @@ export const generateImage = async (
       height,
       aspect_ratio: aspectRatio,
     });
+  } else if (forceProvider === 'unifically') {
+    return await callUnifically(
+      finalPrompt,
+      imageUrls,
+      { ...options, aspect_ratio: aspectRatio },
+      8
+    );
   }
 
   try {
     logger.info(`[AI Service] Trying Unifically for user ${userId}`);
-    // В Unifically шлем СТОЛЬКО ФОТО, СКОЛЬКО ЕСТЬ (до лимита провайдера, обычно 8-10, ставим 8)
     return await callUnifically(
       finalPrompt,
       imageUrls,
@@ -358,8 +342,21 @@ export const checkStatus = async (
       });
       return response.data?.data || response.data;
     } catch (error: any) {
-      logger.error(`[Unifically] Status check failed: ${error.message}`);
-      return null;
+      const status = error.response?.status;
+      logger.error(
+        `[Unifically] Status check failed: ${error.message} (HTTP ${status})`
+      );
+
+      // Если таска удалена или провайдер ругается на Bad Request - сразу переключаем чейн
+      if (status === 400 || status === 404) {
+        return {
+          status: 'failed',
+          error: {
+            message: `API Error ${status}: Task not found or bad request`,
+          },
+        };
+      }
+      return null; // Временный обрыв сети, попробуем на следующем тике
     }
   } else {
     try {
@@ -375,7 +372,14 @@ export const checkStatus = async (
       );
       return response.data;
     } catch (error: any) {
-      logger.error(`[TTAPI] Status check failed: ${error.message}`);
+      const status = error.response?.status;
+      logger.error(
+        `[TTAPI] Status check failed: ${error.message} (HTTP ${status})`
+      );
+
+      if (status === 400 || status === 404) {
+        return { status: 'FAILED', message: `TTAPI Error ${status}` };
+      }
       return null;
     }
   }

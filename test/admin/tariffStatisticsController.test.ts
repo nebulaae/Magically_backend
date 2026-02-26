@@ -52,4 +52,3 @@ describe('Admin tariff statistics controller', () => {
     expect(mockStatus).toHaveBeenCalledWith(400);
   });
 });
-

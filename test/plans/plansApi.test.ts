@@ -60,7 +60,9 @@ describe('Plans API controller', () => {
 
     it('passes type and currency query params', async () => {
       (planService.getActivePlans as jest.Mock).mockResolvedValue([]);
-      const req = { query: { type: 'subscription', currency: 'USD' } } as unknown as Request;
+      const req = {
+        query: { type: 'subscription', currency: 'USD' },
+      } as unknown as Request;
       const res = mockRes();
 
       await plansController.getPlans(req, res);
@@ -114,7 +116,10 @@ describe('Plans API controller', () => {
 
     it('returns 404 when plan not found', async () => {
       (planService.getPlanById as jest.Mock).mockResolvedValue(null);
-      const req = { params: { id: 'missing' }, query: {} } as unknown as Request;
+      const req = {
+        params: { id: 'missing' },
+        query: {},
+      } as unknown as Request;
       const res = mockRes();
 
       await plansController.getPlanById(req, res);
@@ -140,7 +145,9 @@ describe('Plans API controller', () => {
         cancelledAt: null,
         gracePeriodEnd: null,
       };
-      (userPlanService.getActiveUserPlan as jest.Mock).mockResolvedValue(planDto);
+      (userPlanService.getActiveUserPlan as jest.Mock).mockResolvedValue(
+        planDto
+      );
       const req = { user: { id: 'u1' } } as unknown as Request;
       const res = mockRes();
 

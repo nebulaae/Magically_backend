@@ -93,13 +93,7 @@ export const spendTokens = async (
     } catch (e: any) {
       const msg = e?.message || '';
       if (msg === 'No active plan' || msg === 'Insufficient tokens') {
-        await performTransaction(
-          userId,
-          amount,
-          'debit',
-          description,
-          t
-        );
+        await performTransaction(userId, amount, 'debit', description, t);
         return;
       }
       throw e;
