@@ -1,7 +1,10 @@
 import logger from '../../../shared/utils/logger';
 import { Plan, PlanType } from '../models/Plan';
 import * as planRepository from '../repository/planRepository';
-import { convertFromRUB } from '../../payment/service/currencyConversionService';
+import {
+  convertFromRUB,
+  convertToRUB,
+} from '../../payment/service/currencyConversionService';
 
 export interface PlanListFilter {
   type?: PlanType;
@@ -67,9 +70,9 @@ function planToDto(
     currency: plan.currency,
     ...(userCurrency != null &&
       priceInUserCurrency != null && {
-        priceInUserCurrency,
-        userCurrency,
-      }),
+      priceInUserCurrency,
+      userCurrency,
+    }),
     isActive: plan.isActive,
     createdAt: plan.createdAt,
     updatedAt: plan.updatedAt,
@@ -91,9 +94,27 @@ export async function getActivePlans(
     const targetCurrency = userCurrency.toUpperCase();
     const dtos: PlanDto[] = [];
     for (const plan of plans) {
-      const priceRUB = Number(plan.price);
-      const converted = await convertFromRUB(priceRUB, targetCurrency);
-      dtos.push(planToDto(plan, targetCurrency, Math.round(converted * 100) / 100));
+      const planPrice = Number(plan.price);
+      if (plan.currency.toUpperCase() === targetCurrency) {
+        dtos.push(
+          planToDto(
+            plan,
+            targetCurrency,
+            Math.round(planPrice * 100) / 100
+          )
+        );
+        continue;
+      }
+
+      const amountInRUB = await convertToRUB(planPrice, plan.currency);
+      const converted = await convertFromRUB(amountInRUB, targetCurrency);
+      dtos.push(
+        planToDto(
+          plan,
+          targetCurrency,
+          Math.round(converted * 100) / 100
+        )
+      );
     }
     return dtos;
   } catch (error) {
@@ -112,8 +133,7 @@ export async function getAllPlans(
     return plans.map((p) => planToDto(p));
   } catch (error) {
     logger.error(
-      `PlanService.getAllPlans failed: ${
-        error instanceof Error ? error.message : String(error)
+      `PlanService.getAllPlans failed: ${error instanceof Error ? error.message : String(error)
       }`
     );
     throw error;
@@ -131,9 +151,23 @@ export async function getPlanById(
       return planToDto(plan);
     }
     const targetCurrency = userCurrency.toUpperCase();
-    const priceRUB = Number(plan.price);
-    const converted = await convertFromRUB(priceRUB, targetCurrency);
-    return planToDto(plan, targetCurrency, Math.round(converted * 100) / 100);
+    const planPrice = Number(plan.price);
+
+    if (plan.currency.toUpperCase() === targetCurrency) {
+      return planToDto(
+        plan,
+        targetCurrency,
+        Math.round(planPrice * 100) / 100
+      );
+    }
+
+    const amountInRUB = await convertToRUB(planPrice, plan.currency);
+    const converted = await convertFromRUB(amountInRUB, targetCurrency);
+    return planToDto(
+      plan,
+      targetCurrency,
+      Math.round(converted * 100) / 100
+    );
   } catch (error) {
     logger.error(
       `PlanService.getPlanById failed: ${error instanceof Error ? error.message : String(error)}`
