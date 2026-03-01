@@ -6,6 +6,7 @@ import * as planAdminController from './controller/planController';
 
 import { adminAuth } from '../../shared/middleware/adminAuth';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
+import { uploadTrendImages } from '../../shared/middleware/upload';
 
 const router = express.Router();
 
@@ -29,6 +30,8 @@ router.delete(
 );
 router.get('/analytics', asyncHandler(adminController.getAnalytics));
 
+router.get('/settings', asyncHandler(settingController.getSettings));
+router.put('/settings', asyncHandler(settingController.updateSettings));
 router.get(
   '/settings/tariffs',
   asyncHandler(settingController.getTariffSettings)
@@ -62,7 +65,17 @@ router.delete(
 
 // Тренды (с загрузкой файлов)
 router.get('/trends', asyncHandler(adminController.listTrends));
-router.post('/trends', asyncHandler(adminController.createTrend));
-router.put('/trends/:id', asyncHandler(adminController.updateTrend));
+router.get('/trends/:id', asyncHandler(adminController.getTrend));
+router.post(
+  '/trends',
+  uploadTrendImages,
+  asyncHandler(adminController.createTrend)
+);
+router.put(
+  '/trends/:id',
+  uploadTrendImages,
+  asyncHandler(adminController.updateTrend)
+);
+router.delete('/trends/:id', asyncHandler(adminController.deleteTrend));
 
 export default router;

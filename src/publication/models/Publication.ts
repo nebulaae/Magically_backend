@@ -20,11 +20,6 @@ export interface PublicationAttributes {
   category?: string;
   likeCount: number;
   commentCount: number;
-  trendingCover?: string;
-  trendingImageSet?: string[];
-  coverText?: string;
-  isTrend: boolean;
-  adminId?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -32,8 +27,7 @@ export interface PublicationAttributes {
 // --- Publication Model Class ---
 export class Publication
   extends Model<PublicationAttributes>
-  implements PublicationAttributes
-{
+  implements PublicationAttributes {
   public id!: string;
   public userId!: string;
   public content!: string;
@@ -42,11 +36,6 @@ export class Publication
   public category?: string;
   public likeCount!: number;
   public commentCount!: number;
-  public trendingCover?: string;
-  public trendingImageSet?: string[];
-  public coverText?: string;
-  public isTrend: boolean;
-  public adminId?: string;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -68,7 +57,7 @@ Publication.init(
     },
     userId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: 'users',
         key: 'id',
@@ -99,15 +88,6 @@ Publication.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
-    },
-    isTrend: { type: DataTypes.BOOLEAN, defaultValue: false },
-    trendingCover: { type: DataTypes.STRING, allowNull: true },
-    trendingImageSet: { type: DataTypes.JSONB, allowNull: true },
-    coverText: { type: DataTypes.STRING, allowNull: true },
-    adminId: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      references: { model: 'Admins', key: 'id' },
     },
   },
   {

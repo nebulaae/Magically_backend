@@ -17,6 +17,8 @@ export const aiModelsDir = publicDir('ai', 'models');
 export const avatarDir = publicDir('users', 'avatars');
 export const higgsfieldDir = publicDir('ai', 'higgsfield');
 export const publicationDir = publicDir('publications');
+export const trendsDir = publicDir('publications', 'trends');
+
 
 const useS3 = process.env.USE_S3 === 'true';
 
@@ -32,6 +34,7 @@ if (!useS3) {
     aiModelsDir,
     higgsfieldDir,
     publicationDir,
+    trendsDir
   ].forEach((dir) => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -236,6 +239,25 @@ export const uploadAIModelImages = multer({
   fileFilter: fileFilter,
 }).array('modelImages', 8);
 
+export const uploadTrendImages = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, trendsDir);
+    },
+    filename: (req: Request, file, cb) => {
+      const userId = req.user?.id || 'admin';
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const extension = path.extname(file.originalname);
+      cb(null, `trend-${userId}-${uniqueSuffix}${extension}`);
+    },
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  fileFilter: imageAndVideoFileFilter,
+}).fields([
+  { name: 'trendingCover', maxCount: 1 },
+  { name: 'trendingImageSet', maxCount: 10 },
+]);
+
 /**
  * Helper function to handle file upload after multer processing
  * Use this in your controllers/services to upload to S3
@@ -291,6 +313,7 @@ export const ensurePublicDirs = () => {
 
     // publications
     '/app/public/publications',
+    '/app/public/publications/trends',
 
     // images root
     '/app/public/images',

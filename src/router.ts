@@ -17,6 +17,7 @@ import publicationRoutes from './publication/publication';
 import transactionRoutes from './transaction/transaction';
 import paymentRoutes from './payment/payment';
 import plansRoutes from './plans/plans';
+import trendsRoutes from './trends/trends';
 
 import { swaggerDefinition } from './swagger';
 
@@ -47,5 +48,6 @@ router.use('/transaction', transactionRoutes);
 router.use('/payment', paymentRoutes);
 router.use('/plans', plansRoutes);
 router.use('/publications', publicationRoutes);
+router.use('/trends', trendsRoutes);
 
 export default router;

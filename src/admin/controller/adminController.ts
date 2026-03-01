@@ -1,39 +1,41 @@
-import { Request, Response } from 'express';
-import * as adminService from '../service/adminService';
-import * as apiResponse from '../../../shared/utils/apiResponse';
 import logger from '../../../shared/utils/logger';
+import { Request, Response } from 'express';
 import { Publication } from '../../publication/models/Publication';
 import { User } from '../../user/models/User';
+import { Trend } from '../models/Trend';
+import {
+  deleteFile,
+  deleteFiles,
+  handleFilesUpload,
+  handleFileUpload,
+} from '../../../shared/middleware/upload';
+import * as adminService from '../service/adminService';
+import * as apiResponse from '../../../shared/utils/apiResponse';
 
 export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body;
   const result = await adminService.loginAdmin(username, password);
 
   if (!result) {
-    return apiResponse.unauthorized(res, 'Invalid admin credentials');
+    return apiResponse.unauthorized(res, 'Invalid credentials');
   }
 
-  const isProd = process.env.NODE_ENV === 'production';
   res.cookie('admin_token', result.token, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 дней
-  });
-
-  apiResponse.success(res, result, 'Admin login successful.');
-};
-
-export const logout = (_req: Request, res: Response) => {
-  res.clearCookie('admin_token', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: 365 * 24 * 60 * 60 * 1000,
   });
-  apiResponse.success(res, null, 'Admin logged out successfully.');
+
+  apiResponse.success(res, result, 'Admin logged in successfully');
 };
 
-export const getAllUsers = async (_req: Request, res: Response) => {
+export const logout = async (req: Request, res: Response) => {
+  res.clearCookie('admin_token');
+  apiResponse.success(res, null, 'Logged out successfully');
+};
+
+export const getAllUsers = async (req: Request, res: Response) => {
   const users = await adminService.getAllUsers();
   apiResponse.success(res, users);
 };
@@ -82,7 +84,6 @@ export const listAllPublications = async (req: Request, res: Response) => {
   const { page = '1', limit = '20' } = req.query;
   const offset = (Number(page) - 1) * Number(limit);
   const publications = await Publication.findAndCountAll({
-    where: { isTrend: false }, // Обычные юзерские посты
     include: [{ model: User, as: 'author', attributes: ['id', 'username'] }],
     order: [['createdAt', 'DESC']],
     limit: Number(limit),
@@ -91,35 +92,140 @@ export const listAllPublications = async (req: Request, res: Response) => {
   apiResponse.success(res, publications);
 };
 
-// CRUD Трендов
 export const listTrends = async (req: Request, res: Response) => {
-  const trends = await Publication.findAll({
-    where: { isTrend: true },
+  const { page = '1', limit = '20' } = req.query;
+  const offset = (Number(page) - 1) * Number(limit);
+
+  const trends = await Trend.findAndCountAll({
     order: [['createdAt', 'DESC']],
+    limit: Number(limit),
+    offset,
   });
-  apiResponse.success(res, trends);
+
+  apiResponse.success(res, {
+    trends: trends.rows,
+    total: trends.count,
+    page: Number(page),
+    limit: Number(limit),
+    totalPages: Math.ceil(trends.count / Number(limit)),
+  });
+};
+
+export const getTrend = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const trend = await Trend.findByPk(Array.isArray(id) ? id[0] : id);
+  if (!trend) return apiResponse.notFound(res, 'Trend not found');
+  apiResponse.success(res, trend);
 };
 
 export const createTrend = async (req: Request, res: Response) => {
-  const { content, coverText, trendingImageSet, trendingCover } = req.body; // В идеале тут multer для файлов, но для примера берем из body
-  const trend = await Publication.create({
+  const { content, coverText } = req.body;
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+  let trendingCoverUrl: string | undefined;
+  let trendingImageSetUrls: string[] = [];
+
+  if (files?.trendingCover?.[0]) {
+    trendingCoverUrl = await handleFileUpload(
+      files.trendingCover[0],
+      'publications/trends'
+    );
+  }
+
+  if (files?.trendingImageSet?.length) {
+    trendingImageSetUrls = await handleFilesUpload(
+      files.trendingImageSet,
+      'publications/trends'
+    );
+  }
+
+  const trend = await Trend.create({
     content,
     coverText,
-    trendingCover,
-    trendingImageSet,
-    isTrend: true,
+    trendingCover: trendingCoverUrl,
+    trendingImageSet:
+      trendingImageSetUrls.length > 0 ? trendingImageSetUrls : [],
     adminId: req.user.id,
-    userId: req.user.id, // Временно, если БД требует userId (лучше сделать allowNull: true в БД)
   });
+
   apiResponse.success(res, trend, 'Trend created');
 };
 
 export const updateTrend = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const trend = await Publication.findByPk(Array.isArray(id) ? id[0] : id);
+  const { content, coverText, removeImages } = req.body;
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+  const trend = await Trend.findByPk(Array.isArray(id) ? id[0] : id);
   if (!trend) return apiResponse.notFound(res, 'Trend not found');
-  await trend.update(req.body);
+
+  let trendingCoverUrl = trend.trendingCover;
+  let trendingImageSetUrls: string[] = trend.trendingImageSet || [];
+
+  // Если прислали новую обложку
+  if (files?.trendingCover?.[0]) {
+    if (trendingCoverUrl) {
+      await deleteFile(trendingCoverUrl).catch((e) =>
+        logger.error(`Delete old cover error: ${e}`)
+      );
+    }
+    trendingCoverUrl = await handleFileUpload(
+      files.trendingCover[0],
+      'publications/trends'
+    );
+  }
+
+  // Если прислали новый набор изображений (полная замена)
+  if (files?.trendingImageSet?.length) {
+    if (trendingImageSetUrls.length > 0) {
+      await deleteFiles(trendingImageSetUrls).catch((e) =>
+        logger.error(`Delete old images error: ${e}`)
+      );
+    }
+    trendingImageSetUrls = await handleFilesUpload(
+      files.trendingImageSet,
+      'publications/trends'
+    );
+  }
+
+  // Удаление конкретных изображений из набора
+  if (removeImages) {
+    const toRemove: string[] = Array.isArray(removeImages)
+      ? removeImages
+      : [removeImages];
+    await deleteFiles(toRemove).catch((e) =>
+      logger.error(`Delete selected images error: ${e}`)
+    );
+    trendingImageSetUrls = trendingImageSetUrls.filter(
+      (img) => !toRemove.includes(img)
+    );
+  }
+
+  await trend.update({
+    content: content !== undefined ? content : trend.content,
+    coverText: coverText !== undefined ? coverText : trend.coverText,
+    trendingCover: trendingCoverUrl,
+    trendingImageSet: trendingImageSetUrls,
+  });
+
   apiResponse.success(res, trend, 'Trend updated');
+};
+
+export const deleteTrend = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const trend = await Trend.findByPk(Array.isArray(id) ? id[0] : id);
+  if (!trend) return apiResponse.notFound(res, 'Trend not found');
+
+  if (trend.trendingCover) {
+    await deleteFile(trend.trendingCover).catch(() => { });
+  }
+  if (trend.trendingImageSet && trend.trendingImageSet.length > 0) {
+    await deleteFiles(trend.trendingImageSet).catch(() => { });
+  }
+
+  await trend.destroy();
+  apiResponse.success(res, null, 'Trend deleted successfully');
 };
 
 export const giveTokens = async (req: Request, res: Response) => {
