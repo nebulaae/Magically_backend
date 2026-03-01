@@ -1283,5 +1283,149 @@ export const swaggerDefinition = {
         responses: { '200': { description: 'Успешно' } },
       },
     },
+    '/admin/settings/tariffs': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Получить настройки тарифов (trial и grace-период)',
+        responses: { '200': { description: 'Настройки тарифов' } },
+      },
+      put: {
+        tags: ['Admin'],
+        summary: 'Обновить настройки тарифов (trial и grace-период)',
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  trialTokens: { type: 'integer' },
+                  trialPeriodDays: { type: 'integer' },
+                  gracePeriodDays: { type: 'integer' },
+                },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Настройки обновлены' } },
+      },
+    },
+    '/admin/plans': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Список всех тарифов',
+        parameters: [
+          {
+            in: 'query',
+            name: 'type',
+            schema: { type: 'string', enum: ['package', 'subscription', 'topup'] },
+          },
+          {
+            in: 'query',
+            name: 'isActive',
+            schema: { type: 'string', enum: ['true', 'false'] },
+          },
+        ],
+        responses: { '200': { description: 'Список тарифов' } },
+      },
+      post: {
+        tags: ['Admin'],
+        summary: 'Создать тариф',
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name', 'type', 'tokenAmount', 'price'],
+                properties: {
+                  name: { type: 'string' },
+                  description: { type: 'string' },
+                  icon: { type: 'string' },
+                  type: {
+                    type: 'string',
+                    enum: ['package', 'subscription', 'topup'],
+                  },
+                  tokenAmount: { type: 'integer', minimum: 0 },
+                  periodDays: { type: 'integer', nullable: true },
+                  price: { type: 'number', minimum: 0 },
+                  currency: { type: 'string', minLength: 3, maxLength: 3 },
+                  isActive: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Тариф создан' } },
+      },
+    },
+    '/admin/plans/{planId}': {
+      put: {
+        tags: ['Admin'],
+        summary: 'Обновить тариф',
+        parameters: [
+          {
+            in: 'path',
+            name: 'planId',
+            required: true,
+            schema: { type: 'string' },
+          },
+        ],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  description: { type: 'string' },
+                  icon: { type: 'string' },
+                  type: {
+                    type: 'string',
+                    enum: ['package', 'subscription', 'topup'],
+                  },
+                  tokenAmount: { type: 'integer', minimum: 0 },
+                  periodDays: { type: 'integer', nullable: true },
+                  price: { type: 'number', minimum: 0 },
+                  currency: { type: 'string', minLength: 3, maxLength: 3 },
+                  isActive: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Тариф обновлён' } },
+      },
+      delete: {
+        tags: ['Admin'],
+        summary: 'Деактивировать тариф',
+        parameters: [
+          {
+            in: 'path',
+            name: 'planId',
+            required: true,
+            schema: { type: 'string' },
+          },
+        ],
+        responses: { '200': { description: 'Тариф деактивирован' } },
+      },
+    },
+    '/admin/statistics/tariffs': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Статистика по тарифам',
+        parameters: [
+          {
+            in: 'query',
+            name: 'from',
+            schema: { type: 'string', format: 'date-time' },
+          },
+          {
+            in: 'query',
+            name: 'to',
+            schema: { type: 'string', format: 'date-time' },
+          },
+        ],
+        responses: { '200': { description: 'Статистика по тарифам' } },
+      },
+    },
   },
 };
