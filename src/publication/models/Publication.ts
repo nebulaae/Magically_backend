@@ -27,7 +27,8 @@ export interface PublicationAttributes {
 // --- Publication Model Class ---
 export class Publication
   extends Model<PublicationAttributes>
-  implements PublicationAttributes {
+  implements PublicationAttributes
+{
   public id!: string;
   public userId!: string;
   public content!: string;

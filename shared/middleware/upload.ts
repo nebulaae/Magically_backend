@@ -19,7 +19,6 @@ export const higgsfieldDir = publicDir('ai', 'higgsfield');
 export const publicationDir = publicDir('publications');
 export const trendsDir = publicDir('publications', 'trends');
 
-
 const useS3 = process.env.USE_S3 === 'true';
 
 // Ensure directories exist (only if not using S3)
@@ -34,7 +33,7 @@ if (!useS3) {
     aiModelsDir,
     higgsfieldDir,
     publicationDir,
-    trendsDir
+    trendsDir,
   ].forEach((dir) => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });

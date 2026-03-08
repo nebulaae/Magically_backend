@@ -1,7 +1,7 @@
 import db from '../../../shared/config/database';
 import { Model, DataTypes } from 'sequelize';
 
-export type ModelProvider = 'unifically' | 'ttapi';
+export type ModelProvider = 'unifically' | 'ttapi' | 'bfl-official';
 
 export interface TrainingModelAttributes {
   id: string;
@@ -10,7 +10,7 @@ export interface TrainingModelAttributes {
   description?: string;
   instruction?: string;
   imagePaths: string[];
-  provider: ModelProvider; // Провайдер модели
+  provider: ModelProvider;
   isSystemPromptEnabled: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -18,8 +18,7 @@ export interface TrainingModelAttributes {
 
 export class TrainingModel
   extends Model<TrainingModelAttributes>
-  implements TrainingModelAttributes
-{
+  implements TrainingModelAttributes {
   public id!: string;
   public userId!: string;
   public name!: string;
@@ -70,7 +69,7 @@ TrainingModel.init(
       },
     },
     provider: {
-      type: DataTypes.ENUM('unifically', 'ttapi'),
+      type: DataTypes.ENUM('unifically', 'ttapi', 'bfl-official'),
       allowNull: false,
       defaultValue: 'unifically',
     },

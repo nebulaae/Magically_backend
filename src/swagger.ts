@@ -1317,7 +1317,10 @@ export const swaggerDefinition = {
           {
             in: 'query',
             name: 'type',
-            schema: { type: 'string', enum: ['package', 'subscription', 'topup'] },
+            schema: {
+              type: 'string',
+              enum: ['package', 'subscription', 'topup'],
+            },
           },
           {
             in: 'query',

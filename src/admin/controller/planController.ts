@@ -41,7 +41,7 @@ export const listPlans = async (req: Request, res: Response) => {
       );
     }
 
-    let filter: planService.PlanListFilter = {};
+    const filter: planService.PlanListFilter = {};
     if (type && typeof type === 'string') {
       filter.type = type as PlanType;
     }

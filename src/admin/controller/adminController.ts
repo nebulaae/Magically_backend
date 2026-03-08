@@ -218,10 +218,10 @@ export const deleteTrend = async (req: Request, res: Response) => {
   if (!trend) return apiResponse.notFound(res, 'Trend not found');
 
   if (trend.trendingCover) {
-    await deleteFile(trend.trendingCover).catch(() => { });
+    await deleteFile(trend.trendingCover).catch(() => {});
   }
   if (trend.trendingImageSet && trend.trendingImageSet.length > 0) {
-    await deleteFiles(trend.trendingImageSet).catch(() => { });
+    await deleteFiles(trend.trendingImageSet).catch(() => {});
   }
 
   await trend.destroy();

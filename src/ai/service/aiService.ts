@@ -13,7 +13,11 @@ const UNIFICALLY_API_KEY = process.env.FLUX_API_KEY;
 const UNIFICALLY_URL = 'https://api.unifically.com/v1/tasks';
 const TTAPI_KEY = process.env.TTAPI_KEY;
 const TTAPI_URL = 'https://api.ttapi.io';
+const BFL_OFFICIAL_API_KEY = process.env.BFL_OFFICIAL_API_KEY;
+const BFL_OFFICIAL_URL = 'https://api.bfl.ai/v1/flux-2-max';
 const BACKEND_URL = process.env.BACKEND_URL;
+
+export type Provider = 'unifically' | 'ttapi' | 'bfl-official';
 
 export interface GenerateOptions {
   width?: number;
@@ -32,14 +36,10 @@ const getSystemPrompt = async () => {
 const getImageUrl = (src: string) => {
   if (!src) return '';
 
-  // Убираем начальный слеш
   const cleanPath = src.startsWith('/') ? src.slice(1) : src;
 
-  // Если включен S3 - формируем прямую ссылку на бакет
   if (process.env.USE_S3 === 'true') {
     const protocol = process.env.S3_USE_SSL === 'true' ? 'https' : 'http';
-    // Используем PUBLIC endpoint если есть, иначе fallback на стандартный endpoint (для продакшена)
-    // Для локальной разработки с внешними AI это место может быть узким горлышком, если endpoint = minio/localhost
     const endpoint =
       process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT || 'localhost';
     const port = process.env.S3_PORT || '9000';
@@ -50,7 +50,6 @@ const getImageUrl = (src: string) => {
     return `${protocol}://${endpoint}${portSuffix}/${bucket}/${cleanPath}`;
   }
 
-  // Если S3 выключен - отдаем ссылку через наш бэкенд (ngrok/domain)
   return `${BACKEND_URL}/${cleanPath}`;
 };
 
@@ -158,7 +157,7 @@ export const getModelById = async (userId: string, modelId: string) => {
 };
 
 interface GenerationResult {
-  provider: 'unifically' | 'ttapi';
+  provider: Provider;
   taskId: string;
 }
 
@@ -168,6 +167,17 @@ const selectRandomImages = (
 ): string[] => {
   const shuffled = [...imageUrls].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, maxCount);
+};
+
+const getUnificallyResolution = (quality: '1K' | '2K'): string => {
+  return quality === '2K' ? '2mp' : '1mp';
+};
+
+const getBFLDimensions = (
+  quality: '1K' | '2K',
+  aspectRatio: string
+): { width: number; height: number } => {
+  return getDimensions(quality, aspectRatio);
 };
 
 const callUnifically = async (
@@ -181,18 +191,20 @@ const callUnifically = async (
     const sysPrompt = await getSystemPrompt();
     const finalPrompt = sysPrompt ? `${sysPrompt}\n${prompt}` : prompt;
 
+    const resolution = getUnificallyResolution(options.quality);
+
     const payload = {
       model: 'black-forest-labs/flux.2-max',
       input: {
         prompt: finalPrompt,
         image_urls: selectedImages,
-        aspect_ratio: options.aspect_ratio || '9:16', // Дефолт 9:16
-        resolution: options.quality === '2K' ? '2k' : '1k',
+        aspect_ratio: options.aspect_ratio || '9:16',
+        resolution,
       },
     };
 
     logger.info(
-      `[Unifically] Request (${selectedImages.length}/${imageUrls.length} images): ${JSON.stringify(payload)}`
+      `[Unifically] Request (${selectedImages.length}/${imageUrls.length} images, resolution: ${resolution}): ${JSON.stringify(payload)}`
     );
 
     const response = await axios.post(UNIFICALLY_URL, payload, {
@@ -222,7 +234,7 @@ const callTTAPI = async (
   options: GenerateOptions
 ): Promise<{ provider: 'ttapi'; taskId: string }> => {
   try {
-    const selectedImages = selectRandomImages(imageUrls, 4); // Строго до 4 фото
+    const selectedImages = selectRandomImages(imageUrls, 4);
     const sysPrompt = await getSystemPrompt();
     const finalPrompt = sysPrompt ? `${sysPrompt}\n${prompt}` : prompt;
     const { width, height } = getSizeByQuality(
@@ -277,13 +289,74 @@ const callTTAPI = async (
   }
 };
 
+const callBFLOfficial = async (
+  prompt: string,
+  imageUrls: string[],
+  options: GenerateOptions
+): Promise<{ provider: 'bfl-official'; taskId: string }> => {
+  if (!BFL_OFFICIAL_API_KEY) {
+    throw new Error('BFL_OFFICIAL_API_KEY is not set');
+  }
+
+  try {
+    const selectedImages = selectRandomImages(imageUrls, 2);
+    const { width, height } = getBFLDimensions(
+      options.quality,
+      options.aspect_ratio || '9:16'
+    );
+
+    const payload: any = {
+      prompt,
+      width,
+      height,
+    };
+
+    if (selectedImages.length > 0) {
+      payload.image_prompt = selectedImages[0];
+    }
+    if (selectedImages.length > 1) {
+      payload.image_prompt2 = selectedImages[1];
+    }
+
+    logger.info(
+      `[BFL-Official] Request (${selectedImages.length}/${imageUrls.length} images, ${width}x${height}, quality: ${options.quality}). REASON: primary providers failed. This provider is more expensive — $0.049/mp.`
+    );
+    logger.info(`[BFL-Official] Payload: ${JSON.stringify(payload)}`);
+
+    const response = await axios.post(BFL_OFFICIAL_URL, payload, {
+      headers: {
+        'x-key': BFL_OFFICIAL_API_KEY,
+        'Content-Type': 'application/json',
+        accept: 'application/json',
+      },
+      timeout: 30000,
+    });
+
+    const taskId = response.data?.id;
+    const pollingUrl = response.data?.polling_url;
+
+    if (!taskId) throw new Error('No task ID from BFL Official');
+
+    logger.info(
+      `[BFL-Official] Task submitted successfully. task_id: ${taskId}, polling_url: ${pollingUrl}`
+    );
+
+    return { provider: 'bfl-official', taskId };
+  } catch (error: any) {
+    const errorMsg =
+      error.response?.data?.message || error.response?.data || error.message;
+    logger.error(`[BFL-Official] Failed: ${JSON.stringify(errorMsg)}`);
+    throw error;
+  }
+};
+
 export const generateImage = async (
   userId: string,
   modelId: string,
   prompt: string,
   options: any,
-  forceProvider?: 'unifically' | 'ttapi'
-): Promise<{ provider: 'unifically' | 'ttapi'; taskId: string }> => {
+  forceProvider?: Provider
+): Promise<{ provider: Provider; taskId: string }> => {
   const model = await aiRepository.findModelById(modelId);
   if (!model) throw new Error('Model not found');
 
@@ -293,7 +366,6 @@ export const generateImage = async (
   const aspectRatio = options.aspect_ratio || '9:16';
   const { width, height } = getDimensions(options.quality, aspectRatio);
 
-  // Явное направление на провайдера при ретрае
   if (forceProvider === 'ttapi') {
     return await callTTAPI(finalPrompt, imageUrls, {
       ...options,
@@ -306,8 +378,16 @@ export const generateImage = async (
       finalPrompt,
       imageUrls,
       { ...options, aspect_ratio: aspectRatio },
-      8
+      4
     );
+  } else if (forceProvider === 'bfl-official') {
+    logger.warn(
+      `[AI Service] Force-routing to BFL-Official for user ${userId}. This provider is more expensive.`
+    );
+    return await callBFLOfficial(finalPrompt, imageUrls, {
+      ...options,
+      aspect_ratio: aspectRatio,
+    });
   }
 
   try {
@@ -331,10 +411,7 @@ export const generateImage = async (
   }
 };
 
-export const checkStatus = async (
-  taskId: string,
-  provider: 'unifically' | 'ttapi'
-) => {
+export const checkStatus = async (taskId: string, provider: Provider) => {
   if (provider === 'unifically') {
     try {
       const response = await axios.get(`${UNIFICALLY_URL}/${taskId}`, {
@@ -347,7 +424,6 @@ export const checkStatus = async (
         `[Unifically] Status check failed: ${error.message} (HTTP ${status})`
       );
 
-      // Если таска удалена или провайдер ругается на Bad Request - сразу переключаем чейн
       if (status === 400 || status === 404) {
         return {
           status: 'failed',
@@ -356,9 +432,9 @@ export const checkStatus = async (
           },
         };
       }
-      return null; // Временный обрыв сети, попробуем на следующем тике
+      return null;
     }
-  } else {
+  } else if (provider === 'ttapi') {
     try {
       const response = await axios.post(
         `${TTAPI_URL}/flux/fetch`,
@@ -382,6 +458,40 @@ export const checkStatus = async (
       }
       return null;
     }
+  } else if (provider === 'bfl-official') {
+    if (!BFL_OFFICIAL_API_KEY) {
+      logger.error('[BFL-Official] BFL_OFFICIAL_API_KEY is not set');
+      return {
+        status: 'failed',
+        error: { message: 'BFL_OFFICIAL_API_KEY not configured' },
+      };
+    }
+    try {
+      const response = await axios.get(`https://api.bfl.ai/v1/get_result`, {
+        params: { id: taskId },
+        headers: {
+          'x-key': BFL_OFFICIAL_API_KEY,
+          accept: 'application/json',
+        },
+      });
+
+      const data = response.data;
+      logger.info(`[BFL-Official] Status for ${taskId}: ${data?.status}`);
+      return data;
+    } catch (error: any) {
+      const status = error.response?.status;
+      logger.error(
+        `[BFL-Official] Status check failed: ${error.message} (HTTP ${status})`
+      );
+
+      if (status === 400 || status === 404) {
+        return {
+          status: 'Error',
+          error: { message: `BFL-Official API Error ${status}` },
+        };
+      }
+      return null;
+    }
   }
 };
 
@@ -393,8 +503,6 @@ export const processFinalImage = async (
   t: Transaction,
   jobId?: string
 ) => {
-  // Скачиваем из URL провайдера и заливаем в наш S3 (или локально)
-  // s3Storage сам сгенерирует имя файла
   const filename = `${uuidv4()}.png`;
   const savedUrl = await s3Storage.downloadAndUpload(
     imageUrl,

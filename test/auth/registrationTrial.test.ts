@@ -18,7 +18,7 @@ beforeAll(async () => {
     await UserPlan.destroy({ where: { userId: existing.id } });
     await existing.destroy();
   }
-  let trial = await Plan.findOne({ where: { name: 'Trial' } });
+  const trial = await Plan.findOne({ where: { name: 'Trial' } });
   if (!trial) {
     await Plan.create({
       name: 'Trial',
