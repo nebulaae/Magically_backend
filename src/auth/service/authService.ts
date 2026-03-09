@@ -5,6 +5,7 @@ import { generateToken } from '../../../shared/utils/jwt';
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendWelcomeEmail,
 } from '../../../shared/scripts/email';
 import { User } from '../../user/models/User';
 import * as userPlanService from '../../plans/service/userPlanService';
@@ -82,8 +83,9 @@ export const registerStep3 = async (
     password,
   });
 
+  let trialPlan = null as null | userPlanService.ActiveUserPlanDto;
   if (!user.hasUsedTrial) {
-    await userPlanService.createTrialForUser(user.id);
+    trialPlan = await userPlanService.createTrialForUser(user.id);
   }
 
   const token = generateToken(user.id);
@@ -91,6 +93,21 @@ export const registerStep3 = async (
   const { password: _, ...userResponse } = (refreshed ?? user).get({
     plain: true,
   });
+
+  if (!user.hasUsedTrial && trialPlan) {
+    const diffMs =
+      trialPlan.endDate.getTime() - trialPlan.startDate.getTime();
+    const trialDays = Math.max(1, Math.round(diffMs / (24 * 60 * 60 * 1000)));
+    const nameForEmail = fullname || user.fullname || username;
+
+    await sendWelcomeEmail(email, {
+      userId: user.id,
+      name: nameForEmail,
+      trialTokens: trialPlan.tokensFromPlan,
+      trialDays,
+      cabinetUrl: process.env.FRONTEND_URL,
+    });
+  }
 
   return { token, user: userResponse };
 };

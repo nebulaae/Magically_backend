@@ -8,9 +8,16 @@ import * as userPlanService from '../../plans/service/userPlanService';
 import * as topUpService from '../../plans/service/topUpService';
 import * as subscriptionRenewalService from '../../plans/service/subscriptionRenewalService';
 import db from '../../../shared/config/database';
-import { findPaymentById } from '../repository/paymentRepository';
+import { User } from '../../user/models/User';
+import {
+  sendPlanActivatedEmail,
+  sendTopupEmail,
+  sendTopupErrorEmail,
+} from '../../../shared/scripts/email';
 
 // Создает новый платеж
+type BasePaymentMetadata = Record<string, unknown>;
+
 export const createPayment = async (paymentData: {
   userId: string;
   amount: number;
@@ -18,7 +25,7 @@ export const createPayment = async (paymentData: {
   paymentMethod: string;
   paymentProvider?: 'bepaid';
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: BasePaymentMetadata;
 }) => {
   const payment = await paymentRepository.createPayment({
     ...paymentData,
@@ -112,7 +119,7 @@ export const createPaymentWithToken = async (paymentData: {
   paymentMethod: string;
   paymentProvider: 'bepaid';
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: BasePaymentMetadata;
   customer?: {
     first_name?: string;
     last_name?: string;
@@ -171,15 +178,16 @@ export const createPaymentWithToken = async (paymentData: {
       logger.info(
         `Payment token received for payment ${payment.id}: ${paymentToken}`
       );
-    } catch (error: any) {
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       logger.error(
-        `Failed to create payment token for payment ${payment.id}: ${error.message}`
+        `Failed to create payment token for payment ${payment.id}: ${msg}`
       );
       // Обновляем статус на failed, если не удалось получить токен
       await paymentRepository.updatePayment(payment, {
         status: 'failed',
       });
-      throw new Error(`Failed to create payment token: ${error.message}`);
+      throw new Error(`Failed to create payment token: ${msg}`);
     }
   } else {
     // Для других платежных систем можно добавить аналогичную логику
@@ -259,10 +267,10 @@ export const handleBePaidWebhook = async (
 
       const meta = payment!.metadata as
         | {
-            planOperation?: string;
-            planId?: string;
-            userPlanId?: string;
-          }
+          planOperation?: string;
+          planId?: string;
+          userPlanId?: string;
+        }
         | undefined;
 
       if (meta?.planOperation === 'subscription_renewal' && meta?.userPlanId) {
@@ -321,9 +329,9 @@ export const handleBePaidWebhook = async (
             } else {
               throw new Error(`Unknown planOperation: ${planOperation}`);
             }
-          } catch (error: unknown) {
+          } catch (error) {
             logger.error(
-              `Failed to fulfill plan for payment ${payment!.id}: ${error instanceof Error ? error.message : String(error)}`
+              `Failed to fulfill plan for payment ${payment!.id}: ${(error as Error).message ?? String(error)}`
             );
           }
         } else {
@@ -345,9 +353,9 @@ export const handleBePaidWebhook = async (
             logger.info(
               `Tokens credited: ${finalTokens} tokens for user ${userId} (payment ${payment!.id})`
             );
-          } catch (error: unknown) {
+          } catch (error) {
             logger.error(
-              `Failed to credit tokens for payment ${payment!.id}: ${error instanceof Error ? error.message : String(error)}`
+              `Failed to credit tokens for payment ${payment!.id}: ${(error as Error).message ?? String(error)}`
             );
           }
         }
@@ -363,6 +371,102 @@ export const handleBePaidWebhook = async (
     logger.info(
       `BePaid webhook processed: payment ${result.id}, status: ${paymentStatus}`
     );
+
+    try {
+      const user = await User.findByPk(payment.userId);
+      if (user && !user.email.toLowerCase().endsWith('@telegram.local')) {
+        const cabinetUrl = process.env.FRONTEND_URL;
+
+        if (paymentStatus === 'completed') {
+          const meta = payment.metadata as
+            | {
+              planOperation?: string;
+              planId?: string;
+            }
+            | undefined;
+
+          if (meta?.planOperation && meta.planId) {
+            if (
+              meta.planOperation === 'package' ||
+              meta.planOperation === 'subscription' ||
+              meta.planOperation === 'upgrade'
+            ) {
+              try {
+                const activePlan =
+                  await userPlanService.getActiveUserPlan(user.id);
+                if (activePlan && activePlan.planName) {
+                  const diffMs =
+                    activePlan.endDate.getTime() -
+                    activePlan.startDate.getTime();
+                  const periodDays = Math.max(
+                    1,
+                    Math.round(diffMs / (24 * 60 * 60 * 1000))
+                  );
+
+                  await sendPlanActivatedEmail(user.email, {
+                    userId: user.id,
+                    planName: activePlan.planName,
+                    tokens: activePlan.tokensFromPlan,
+                    periodDays,
+                    amount,
+                    currency,
+                    endDate: activePlan.endDate.toLocaleDateString('ru-RU'),
+                    cabinetUrl,
+                  });
+                }
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                logger.error(
+                  `Failed to send plan activation email for payment ${payment.id}: ${msg}`
+                );
+              }
+            } else if (meta.planOperation === 'topup') {
+              try {
+                const balance = await userPlanService.getTokenBalance(user.id);
+                await sendTopupEmail(user.email, {
+                  topupTokens: balance.tokensFromTopup,
+                  totalBalance: balance.total,
+                  amount,
+                  currency,
+                  burnDate: '',
+                  cabinetUrl,
+                });
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                logger.error(
+                  `Failed to send top-up email for payment ${payment.id}: ${msg}`
+                );
+              }
+            }
+          }
+        } else if (paymentStatus === 'failed') {
+          try {
+            const tryAgainUrl =
+              process.env.FRONTEND_URL?.concat('/tariffs')
+            const support =
+              process.env.SUPPORT_CONTACT ?? 'support@volshebny.by';
+
+            await sendTopupErrorEmail(user.email, {
+              userId: user.id,
+              amount,
+              currency,
+              tryAgainUrl,
+              support,
+            });
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            logger.error(
+              `Failed to send top-up error email for payment ${payment.id}: ${msg}`
+            );
+          }
+        }
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      logger.error(
+        `Error while sending payment-related emails for payment ${payment.id}: ${msg}`
+      );
+    }
 
     return {
       success: true,

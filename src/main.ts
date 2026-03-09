@@ -17,6 +17,7 @@ import { PUBLIC_ROOT } from '../shared/utils/paths';
 import { Server as SocketIOServer } from 'socket.io';
 import { createAdmin } from '../shared/scripts/createAdmin';
 import { startJobPoller } from '../shared/workers/jobPoller';
+import { startReactivationWorker } from '../shared/workers/reactivationWorker';
 import { seedTestData } from '../shared/scripts/seedTestData';
 import { setupAssociations } from '../shared/models/associations';
 import { initializeSocketIO } from '../shared/utils/socketManager';
@@ -128,6 +129,7 @@ const startServer = async () => {
     server.listen(PORT, () => {
       logger.info(`Server successfully started and running on port ${PORT}`);
       startJobPoller(io);
+      startReactivationWorker();
     });
   } catch (error) {
     logger.error(`Failed to start server: ${error.message}`);
