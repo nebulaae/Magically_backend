@@ -46,5 +46,5 @@ COPY public ./public
 # Expose the application port
 EXPOSE 5000
 
-# Command to run the application
-CMD ["node", "dist/src/main.js"]
+# Command to run migrations, seed plans (в т.ч. trial) и запустить приложение
+CMD ["sh", "-c", "npm run seed:plans && node dist/src/main.js"]
