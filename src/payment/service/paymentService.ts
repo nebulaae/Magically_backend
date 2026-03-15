@@ -300,8 +300,29 @@ export const handleBePaidWebhook = async (
         originalStatus !== 'completed' &&
         originalStatus !== 'refunded'
       ) {
-        const planOperation = meta?.planOperation;
-        const planId = meta?.planId;
+        const metaWithPlan = meta as
+          | {
+              planOperation?: string;
+              planId?: string;
+              quantity?: number;
+              tokenAmount?: number;
+              userPlanId?: string;
+            }
+          | undefined;
+        const planOperation = metaWithPlan?.planOperation;
+        const planId = metaWithPlan?.planId;
+        const qtyValue = metaWithPlan?.quantity;
+        const quantity =
+          typeof qtyValue === 'number' && Number.isFinite(qtyValue) && qtyValue > 0
+            ? Math.floor(qtyValue)
+            : 1;
+        const tokenAmountValue = metaWithPlan?.tokenAmount;
+        const customTokenAmount =
+          typeof tokenAmountValue === 'number' &&
+          Number.isFinite(tokenAmountValue) &&
+          tokenAmountValue > 0
+            ? Math.floor(tokenAmountValue)
+            : undefined;
         const userId = payment!.userId;
 
         if (planOperation && planId) {
@@ -322,7 +343,14 @@ export const handleBePaidWebhook = async (
                 `Plan upgrade fulfilled: payment ${payment!.id}, planId ${planId}`
               );
             } else if (planOperation === 'topup') {
-              await topUpService.purchaseTopUp(userId, planId, payment!.id);
+              await topUpService.purchaseTopUp(
+                userId,
+                planId,
+                payment!.id,
+                quantity,
+                customTokenAmount,
+                amount
+              );
               logger.info(
                 `Plan top-up fulfilled: payment ${payment!.id}, planId ${planId}`
               );
@@ -379,10 +407,12 @@ export const handleBePaidWebhook = async (
 
         if (paymentStatus === 'completed') {
           const meta = payment.metadata as
-            | {
-              planOperation?: string;
-              planId?: string;
-            }
+            | (BasePaymentMetadata & {
+                planOperation?: string;
+                planId?: string;
+                quantity?: number;
+                userPlanId?: string;
+              })
             | undefined;
 
           if (meta?.planOperation && meta.planId) {

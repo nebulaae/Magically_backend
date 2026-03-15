@@ -251,7 +251,8 @@ export const swaggerDefinition = {
     '/plans/topup': {
       post: {
         tags: ['Plans'],
-        summary: 'Докупка токенов (создание платежа)',
+        summary:
+          'Докупка токенов (создание платежа). Либо amount (объём энергии от базы плана с шагом 100), либо quantity (число пакетов).',
         security: [{ bearerAuth: [] }, { cookieAuth: [] }],
         requestBody: {
           content: {
@@ -262,7 +263,23 @@ export const swaggerDefinition = {
                 properties: {
                   planId: { type: 'string', format: 'uuid' },
                   currency: { type: 'string' },
+                  quantity: {
+                    type: 'integer',
+                    minimum: 1,
+                    description:
+                      'Количество пакетов пополнения. Игнорируется, если передан amount.',
+                  },
+                  amount: {
+                    type: 'integer',
+                    minimum: 3000,
+                    description:
+                      'Желаемый объём энергии (от базы плана с шагом 100). Цена считается пропорционально. При наличии amount quantity не используется.',
+                  },
                 },
+              },
+              example: {
+                planId: '00000000-0000-0000-0000-000000000000',
+                amount: 3100,
               },
             },
           },

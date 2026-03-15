@@ -30,7 +30,10 @@ export interface PurchaseTopUpResult {
 export async function purchaseTopUp(
   userId: string,
   planId: string,
-  paymentId?: string | null
+  paymentId?: string | null,
+  quantity = 1,
+  customTokenAmount?: number,
+  customTotalPrice?: number
 ): Promise<PurchaseTopUpResult> {
   try {
     const userPlan = await userPlanRepository.findActiveByUserId(userId);
@@ -43,21 +46,35 @@ export async function purchaseTopUp(
       throw new Error('Plan is not a top-up plan');
     }
     if (!plan.isActive) throw new Error('Plan is not active');
+    const totalTokens =
+      typeof customTokenAmount === 'number' && customTokenAmount > 0
+        ? customTokenAmount
+        : plan.tokenAmount *
+          (typeof quantity === 'number' && Number.isFinite(quantity) && quantity > 0
+            ? Math.floor(quantity)
+            : 1);
+    const totalPrice =
+      typeof customTotalPrice === 'number' && customTotalPrice >= 0
+        ? customTotalPrice
+        : Number(plan.price) *
+          (typeof quantity === 'number' && Number.isFinite(quantity) && quantity > 0
+            ? Math.floor(quantity)
+            : 1);
     const expiresAt = new Date(userPlan.endDate);
     const result = await db.transaction(async (t) => {
       const topUp = await topUpRepository.create(
         {
           userId,
           userPlanId: userPlan.id,
-          tokenAmount: plan.tokenAmount,
-          price: plan.price,
+          tokenAmount: totalTokens,
+          price: totalPrice,
           currency: plan.currency,
           paymentId: paymentId ?? null,
           expiresAt,
         },
         t
       );
-      const newTotal = userPlan.tokensFromTopup + plan.tokenAmount;
+      const newTotal = userPlan.tokensFromTopup + totalTokens;
       await userPlanRepository.update(
         userPlan,
         { tokensFromTopup: newTotal },
@@ -66,7 +83,7 @@ export async function purchaseTopUp(
       return {
         topUpId: topUp.id,
         userPlanId: userPlan.id,
-        tokenAmount: plan.tokenAmount,
+        tokenAmount: totalTokens,
         tokensFromTopupTotal: newTotal,
         expiresAt,
       };

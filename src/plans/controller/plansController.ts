@@ -77,16 +77,39 @@ const createPlanPayment = async (
   planId: string,
   planOperation: 'package' | 'subscription' | 'topup' | 'upgrade',
   description: string,
-  userCurrency?: string
+  userCurrency?: string,
+  quantity?: number,
+  topupCustomAmount?: number,
+  topupCustomTokenAmount?: number
 ) => {
   const plan = await planService.getPlanById(planId, userCurrency);
   if (!plan) throw new Error('Plan not found');
   if (!plan.isActive) throw new Error('Plan is not active');
-  const amount =
+  const normalizedQuantity =
+    typeof quantity === 'number' && Number.isFinite(quantity) && quantity > 0
+      ? Math.floor(quantity)
+      : 1;
+  const singleAmount =
     plan.priceInUserCurrency != null
       ? plan.priceInUserCurrency
       : Number(plan.price);
+  const amount =
+    topupCustomAmount != null && topupCustomAmount >= 0
+      ? topupCustomAmount
+      : singleAmount * normalizedQuantity;
   const currency = plan.userCurrency ?? plan.currency;
+  const metadata: Record<string, unknown> = {
+    planOperation,
+    planId,
+    quantity: normalizedQuantity,
+  };
+  if (
+    planOperation === 'topup' &&
+    typeof topupCustomTokenAmount === 'number' &&
+    Number.isFinite(topupCustomTokenAmount)
+  ) {
+    metadata.tokenAmount = topupCustomTokenAmount;
+  }
   const result = await paymentService.createPaymentWithToken({
     userId,
     amount,
@@ -94,7 +117,7 @@ const createPlanPayment = async (
     paymentMethod: 'card',
     paymentProvider: 'bepaid',
     description,
-    metadata: { planOperation, planId },
+    metadata,
   });
   return apiResponse.success(
     res,
@@ -178,6 +201,8 @@ export const topup = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const planId = req.body?.planId;
     const currency = req.body?.currency;
+    const quantityRaw = req.body?.quantity;
+    const amountRaw = req.body?.amount;
     if (!planId || typeof planId !== 'string')
       return apiResponse.badRequest(res, 'planId is required');
     const plan = await planService.getPlanById(
@@ -187,13 +212,43 @@ export const topup = async (req: Request, res: Response) => {
     if (!plan) return apiResponse.notFound(res, 'Plan not found');
     if (plan.type !== 'topup')
       return apiResponse.badRequest(res, 'Plan is not a top-up');
+    const baseTokens = Number(plan.tokenAmount) || 3000;
+    const basePrice = Number(
+      plan.priceInUserCurrency != null ? plan.priceInUserCurrency : plan.price
+    );
+    let quantity: number | undefined;
+    let customTokenAmount: number | undefined;
+    if (
+      typeof amountRaw === 'number' &&
+      Number.isFinite(amountRaw) &&
+      amountRaw >= baseTokens
+    ) {
+      customTokenAmount = Math.floor(amountRaw);
+    } else if (typeof amountRaw === 'string') {
+      const parsed = Number.parseInt(amountRaw, 10);
+      if (Number.isFinite(parsed) && parsed >= baseTokens)
+        customTokenAmount = parsed;
+    }
+    if (customTokenAmount == null) {
+      quantity =
+        typeof quantityRaw === 'number'
+          ? quantityRaw
+          : typeof quantityRaw === 'string'
+            ? Number.parseInt(quantityRaw, 10)
+            : undefined;
+    }
     await createPlanPayment(
       res,
       userId,
       planId,
       'topup',
       `Top-up: ${plan.name}`,
-      typeof currency === 'string' ? currency : undefined
+      typeof currency === 'string' ? currency : undefined,
+      quantity,
+      customTokenAmount != null
+        ? Math.round(basePrice * (customTokenAmount / baseTokens))
+        : undefined,
+      customTokenAmount
     );
   } catch (error) {
     handleErrors(error, res);

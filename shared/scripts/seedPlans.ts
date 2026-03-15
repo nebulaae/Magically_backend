@@ -1,7 +1,35 @@
+import { Op } from 'sequelize';
 import db from '../config/database';
 import { Plan } from '../../src/plans/models/Plan';
+import { UserPlan } from '../../src/plans/models/UserPlan';
+import { TopUp } from '../../src/plans/models/TopUp';
 import { setupAssociations } from '../models/associations';
 import logger from '../utils/logger';
+
+const REMOVE_PLAN_NAMES = ['Test BYN', 'Pack RUB'];
+
+const LEGACY_PLAN_NAMES = [
+  'Starter Pack',
+  'Monthly Pack',
+  'Quarter Pack',
+  'Starter',
+  'Pro',
+  'Business',
+  'Top-up 100',
+  'Top-up 500',
+  'Top-up 1000',
+];
+
+const SEED_PLAN_NAMES = [
+  'Trial',
+  'Фея',
+  'Чародей',
+  'Волшебник',
+  'Фея (год)',
+  'Чародей (год)',
+  'Волшебник (год)',
+  'Energy 3000',
+];
 
 const DEFAULT_PLANS = [
   {
@@ -13,85 +41,68 @@ const DEFAULT_PLANS = [
     price: 0,
     currency: 'RUB',
   },
+
   {
-    name: 'Starter Pack',
-    description: '7 days',
+    name: 'Фея',
+    description: 'Месячный пакет',
     type: 'package' as const,
-    tokenAmount: 100,
-    periodDays: 7,
-    price: 299,
-    currency: 'RUB',
-  },
-  {
-    name: 'Monthly Pack',
-    description: '30 days',
-    type: 'package' as const,
-    tokenAmount: 500,
-    periodDays: 30,
-    price: 999,
-    currency: 'RUB',
-  },
-  {
-    name: 'Quarter Pack',
-    description: '90 days',
-    type: 'package' as const,
-    tokenAmount: 1500,
-    periodDays: 90,
-    price: 2499,
-    currency: 'RUB',
-  },
-  {
-    name: 'Starter',
-    description: 'Monthly subscription',
-    type: 'subscription' as const,
-    tokenAmount: 200,
+    tokenAmount: 495,
     periodDays: 30,
     price: 499,
     currency: 'RUB',
   },
   {
-    name: 'Pro',
-    description: 'Monthly subscription',
-    type: 'subscription' as const,
-    tokenAmount: 600,
+    name: 'Чародей',
+    description: 'Месячный пакет',
+    type: 'package' as const,
+    tokenAmount: 1095,
     periodDays: 30,
-    price: 1299,
+    price: 999,
     currency: 'RUB',
   },
   {
-    name: 'Business',
-    description: 'Monthly subscription',
-    type: 'subscription' as const,
-    tokenAmount: 1500,
+    name: 'Волшебник',
+    description: 'Месячный пакет',
+    type: 'package' as const,
+    tokenAmount: 2745,
     periodDays: 30,
-    price: 2999,
+    price: 2499,
     currency: 'RUB',
   },
   {
-    name: 'Top-up 100',
-    description: '100 tokens',
-    type: 'topup' as const,
-    tokenAmount: 100,
-    periodDays: null,
-    price: 99,
+    name: 'Фея (год)',
+    description: 'Годовой пакет',
+    type: 'package' as const,
+    tokenAmount: 5940,
+    periodDays: 365,
+    price: 4990,
     currency: 'RUB',
   },
   {
-    name: 'Top-up 500',
-    description: '500 tokens',
-    type: 'topup' as const,
-    tokenAmount: 500,
-    periodDays: null,
-    price: 399,
+    name: 'Чародей (год)',
+    description: 'Годовой пакет',
+    type: 'package' as const,
+    tokenAmount: 13140,
+    periodDays: 365,
+    price: 9990,
     currency: 'RUB',
   },
   {
-    name: 'Top-up 1000',
-    description: '1000 tokens',
+    name: 'Волшебник (год)',
+    description: 'Годовой пакет',
+    type: 'package' as const,
+    tokenAmount: 32940,
+    periodDays: 365,
+    price: 24990,
+    currency: 'RUB',
+  },
+  {
+    name: 'Energy 3000',
+    description: 'Пополнение энергии (база 3000, шаг 100)',
     type: 'topup' as const,
-    tokenAmount: 1000,
+    tokenAmount: 3000,
     periodDays: null,
-    price: 699,
+    price: 2500,
     currency: 'RUB',
   },
 ];
@@ -101,6 +112,49 @@ export const seedPlans = async () => {
     await db.authenticate();
     if (require.main === module) {
       setupAssociations();
+    }
+    const plansToRemove = await Plan.findAll({
+      where: { name: { [Op.in]: REMOVE_PLAN_NAMES } },
+      attributes: ['id'],
+    });
+    if (plansToRemove.length > 0) {
+      const planIds = plansToRemove.map((p) => p.id);
+      const userPlans = await UserPlan.findAll({
+        where: { planId: { [Op.in]: planIds } },
+        attributes: ['id'],
+      });
+      const userPlanIds = userPlans.map((up) => up.id);
+      if (userPlanIds.length > 0) {
+        await TopUp.destroy({ where: { userPlanId: { [Op.in]: userPlanIds } } });
+      }
+      await UserPlan.destroy({ where: { planId: { [Op.in]: planIds } } });
+      await Plan.destroy({ where: { id: { [Op.in]: planIds } } });
+      logger.info(`Removed ${plansToRemove.length} test plan(s): ${REMOVE_PLAN_NAMES.join(', ')}`);
+    }
+    const [deactivated] = await Plan.update(
+      { isActive: false },
+      { where: { name: { [Op.in]: LEGACY_PLAN_NAMES } } }
+    );
+    if (deactivated > 0) {
+      logger.info(`Deactivated ${deactivated} legacy plan(s).`);
+    }
+    const existingSeedPlans = await Plan.findAll({
+      where: { name: { [Op.in]: SEED_PLAN_NAMES } },
+      attributes: ['id'],
+    });
+    if (existingSeedPlans.length > 0) {
+      const ids = existingSeedPlans.map((p) => p.id);
+      const userPlansForSeed = await UserPlan.findAll({
+        where: { planId: { [Op.in]: ids } },
+        attributes: ['id'],
+      });
+      const upIds = userPlansForSeed.map((up) => up.id);
+      if (upIds.length > 0) {
+        await TopUp.destroy({ where: { userPlanId: { [Op.in]: upIds } } });
+      }
+      await UserPlan.destroy({ where: { planId: { [Op.in]: ids } } });
+      await Plan.destroy({ where: { id: { [Op.in]: ids } } });
+      logger.info(`Removed ${existingSeedPlans.length} seed plan(s) for re-seed.`);
     }
     let createdCount = 0;
     for (const row of DEFAULT_PLANS) {
